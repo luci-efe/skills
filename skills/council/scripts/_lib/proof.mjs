@@ -1,7 +1,7 @@
-import { mkdir, writeFile, copyFile } from 'node:fs/promises';
+import { mkdir, appendFile, copyFile } from 'node:fs/promises';
 import { resolve, basename } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { inside, safeId } from './files.mjs';
+import { inside, safeId, fileSHA256 } from './files.mjs';
 import { inputDigest } from './digest.mjs';
 import { execute } from './execute.mjs';
 import { runDirectory, writeResult, setActiveRun } from './result.mjs';
@@ -21,9 +21,10 @@ export async function runChecks(manifest,{cwd=process.cwd(),runId=randomUUID(),s
     const missing=prerequisites.filter(p=>!p.ok);
     if(missing.length)throw new Error(missing.map(p=>`${p.id}: ${p.diagnostic??'unavailable'}; ${p.missing_install??'no verified installation recipe'}`).join('; '));
     for(const check of manifest.checks) {
-      const execution=await execute(check.argv,{cwd:inside(cwd,check.cwd??'.'),timeoutMs:check.timeout_ms??120000});
-      const log=`checks/${check.id}.log`;await writeFile(resolve(dir,log),execution.output+(execution.diagnostic?`\n${execution.diagnostic}\n`:''));
-      result.checks.push({id:check.id,argv:check.argv,cwd:check.cwd??'.',exit:execution.exit,started_at:execution.started_at,ended_at:execution.ended_at,log});
+      const log=`checks/${check.id}.log`;
+      const execution=await execute(check.argv,{cwd:inside(cwd,check.cwd??'.'),timeoutMs:check.timeout_ms??120000,logPath:resolve(dir,log)});
+      if(execution.diagnostic)await appendFile(resolve(dir,log),`\n${execution.diagnostic}\n`);
+      result.checks.push({id:check.id,argv:check.argv,cwd:check.cwd??'.',exit:execution.exit,started_at:execution.started_at,ended_at:execution.ended_at,log,log_sha256:await fileSHA256(resolve(dir,log))});
       if(execution.exit!==0){result.status=execution.exit===null?'blocked':'failed';result.reason=execution.diagnostic??`Check ${check.id} exited ${execution.exit}`;break;}
     }
     if(result.checks.length===manifest.checks.length && result.checks.every(c=>c.exit===0)) {

@@ -35,7 +35,7 @@ Rules: **01** Observable · **02** Not a clipboard · **03** Evidence of done ·
 - **Fails fast on missing tools.** Each skill branch declares its tools in `skill.json`. A missing tool blocks only that branch and prints the install command. Nothing silently degrades.
 - **One hard gate.** With hooks installed, Claude Code can't end a turn that claims "done" unless `/proof` holds a passing, non-stale evidence record (or the work is honestly marked blocked or failed). Every other hook is advisory. In other harnesses the same scripts run as manual checks.
 - **State lives in `.ramos/`** (override with `RAMOS_STATE_DIR`). Add it to `.gitignore` unless you want evidence committed.
-- **"Done" vs. "verified".** Local evidence reaches `done`. CI re-runs the checks, and an independent reviewer checks the work before it's called verified.
+- **"Done" vs. "verified".** The local gate prevents accidental false completion claims; hand-written evidence can still pass it. CI re-execution plus independent review earns `verified`.
 
 ## Tools
 | Tool | Needed by | Install (macOS) |
@@ -74,7 +74,7 @@ Plugin de Claude Code: `claude plugin marketplace add luci-efe/skills` y luego `
 - **Falla rápido si falta una herramienta.** Muestra el comando exacto de instalación y nunca degrada en silencio.
 - **Una sola compuerta obligatoria.** Con los hooks instalados, Claude Code no puede declarar "terminado" sin una evidencia vigente de `/proof`. Los demás hooks solo sugieren.
 - **El estado vive en `.ramos/`.**
-- **"Terminado" vs. "verificado".** La evidencia local basta para terminar. CI repite las pruebas y otra persona o agente revisa antes de llamarlo verificado.
+- **"Terminado" vs. "verificado".** La compuerta local evita declaraciones accidentales de finalización; una evidencia escrita a mano aún puede pasarla. La reejecución en CI y una revisión independiente permiten llamarlo verificado.
 
 Los comandos y nombres de archivo se mantienen en inglés.
 

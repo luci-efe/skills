@@ -11,3 +11,5 @@ Stop honors `stop_hook_active` first. Otherwise, a claimed-done run requires val
 SessionStart calls the installed relay script's `inject` entrypoint with `RAMOS_SESSION_ID`; no relay means no-op. The adapter bounds injection bytes again. Provider readiness and code-index freshness belong to doctor/cartographer; they never cause a SessionStart block. The prompt nudge is advisory and has no model call.
 
 Hooks are not a security sandbox. Local evidence can reach done; CI independently re-executes the checks. Codex and Antigravity use manual proof scripts until their own event adapters are tested. Windows shell quoting is handled at installation, but tool `.cmd` wrappers are not executed through an implicit shell fallback.
+
+Installed hooks also discover sibling skills in the installed skill collection, including plugin caches. Doctor records that collection path in each hook command; the adapter can infer it for older registrations.

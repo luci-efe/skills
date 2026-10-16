@@ -1,6 +1,7 @@
+import { createReadStream } from 'node:fs';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 export function inside(root, path) {
   const base = resolve(root), target = resolve(base, path), rel = relative(base, target);
   if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new Error(`Path escapes its root: ${path}`);
@@ -16,4 +17,8 @@ export async function atomicJSON(path, value) {
   const temp = `${path}.${randomUUID()}.tmp`;
   await writeFile(temp, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
   await rename(temp, path);
+}
+
+export async function fileSHA256(path) {
+  const hash=createHash('sha256');for await(const chunk of createReadStream(path))hash.update(chunk);return hash.digest('hex');
 }

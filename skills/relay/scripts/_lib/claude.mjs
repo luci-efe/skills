@@ -5,7 +5,7 @@ export async function hookInput() {let text='';for await(const chunk of process.
 export async function stop(input) {
   if(input.stop_hook_active)return {};
   try {
-    const active=await readActiveRun(input.cwd??process.cwd(),input.session_id);
+    const active=await readActiveRun(input.cwd??process.cwd(),input.session_id??process.env.CLAUDE_CODE_SESSION_ID??process.env.RAMOS_SESSION_ID??process.env.CLAUDE_SESSION_ID);
     if(!active?.claimed_done)return {};
     const result=await readJSON(resolve(runDirectory(input.cwd??process.cwd(),active.run_id),'result.json'));
     const verdict=await validateResult(input.cwd??process.cwd(),result,{runId:active.run_id});

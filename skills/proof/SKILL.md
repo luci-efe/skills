@@ -22,6 +22,10 @@ Example manifest:
 ```json
 {"checks":[{"id":"unit","argv":["node","--test","test/**/*.test.mjs"]}],"required_checks":["unit"],"artifacts":[]}
 ```
-The runner writes `STATE_DIR/runs/<run-id>/result.json`; `STATE_DIR` comes from the installed config module and can be overridden by `RAMOS_STATE_DIR`. It never overwrites an existing run ID. Session registry entries are keyed by session ID. Without `--session` or `RAMOS_SESSION_ID`/`CLAUDE_SESSION_ID`, use the manual check; no hook is armed for an inferred session.
+The runner writes `STATE_DIR/runs/<run-id>/result.json`; `STATE_DIR` comes from the installed config module and can be overridden by `RAMOS_STATE_DIR`. It never overwrites an existing run ID. Session registry entries are keyed by session ID. Without `--session` or `RAMOS_SESSION_ID`/`CLAUDE_CODE_SESSION_ID`/`CLAUDE_SESSION_ID`, use the manual check; no hook is armed for an inferred session.
+
+Claude Code supplies `CLAUDE_CODE_SESSION_ID` in its tool environment. `--session` overrides the environment; the Stop hook prefers `session_id` in its JSON input. State is anchored at the Git root (otherwise the nearest ancestor with a state directory, falling back to cwd), so package-level runs and root hooks share evidence. Check output streams to disk without a size cap; each log has a verified SHA-256. Rerun older receipts that lack `log_sha256`.
+
+The local gate prevents accidental false “done” claims, not fabricated evidence: a hand-written result and matching hashes can pass. CI re-execution plus independent review earns “verified.”
 
 Done: all declared required checks passed on stable current inputs and evidence was validated locally. CI independently re-runs, reviews and challenges that result. A generated receipt alone is not independent proof, deployment evidence, or customer acceptance.
