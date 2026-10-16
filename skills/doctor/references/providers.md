@@ -29,7 +29,7 @@ all returned exit 0. Versions below are observations, not compatibility constrai
 | herdr | `herdr --version` | 0.7.1 | [Publisher installation](https://github.com/herdrdev/herdr#install) |
 | claude | `claude --version` | 2.1.263 | [Setup](https://code.claude.com/docs/en/setup) |
 | codex | `codex --version` | 0.153.4 | [Publisher README](https://github.com/openai/codex) |
-| agy | `agy --help` | help observed; chair reports 3.15.1; no advertised version flag; recipe unverified | No confirmed public installer; ask the tool owner |
+| agy | `agy --help` | observed; no advertised version flag; recipe unverified | No confirmed public installer; ask the tool owner |
 | gemini | `gemini --version` | 0.42.0 | [Publisher README](https://github.com/google-gemini/gemini-cli) |
 | opencode | `opencode --version` | 1.16.2 | [Install](https://opencode.ai/docs/) |
 | mnemosyne | `mnemosyne --help` | help observed; chair reports 3.15.1; no advertised version flag; recipe unverified | No confirmed installer for this local memory CLI; do not substitute similarly named packages |
