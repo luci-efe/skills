@@ -1,7 +1,7 @@
 {
   "schema_version":1,
   "stage":"prove",
-  "rule_ids":["01","03"],
+  "rule_ids":["03","01"],
   "branches":[
     {"id":"assertion","entrypoint":"SKILL.md","requires":["node"],"artifact_schema":null},
     {"id":"perf","entrypoint":"SKILL.md","requires":["node"],"artifact_schema":null},
