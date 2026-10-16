@@ -11,6 +11,8 @@ Separate four findings that are easy to conflate: **affected version**, **suspec
 - `osv-scanner` ≥2 on PATH, else stop and print `brew install osv-scanner` or `go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest`.
 - Exploit reproduction only against a local checkout or a test environment you own. Never against production, third-party hosts, or real credentials. If the target is unclear → ask.
 
+Scope: known-vulnerable dependencies only. Secrets, workflow, and authz review are separate work; say so in the report. For large scans see the rollup notes in `references/triage.md`.
+
 ## Decision tree
 
 **1. Scan** (always first)
