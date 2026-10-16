@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "stage": "build",
+  "rule_ids": ["03", "01"],
+  "branches": [
+    { "id": "default", "entrypoint": "SKILL.md", "requires": ["git"], "artifact_schema": null },
+    { "id": "bisect", "entrypoint": "references/bisect.md", "requires": ["git"], "artifact_schema": null }
+  ]
+}

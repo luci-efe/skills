@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "stage": "decide",
+  "rule_ids": ["02", "05"],
+  "branches": [
+    { "id": "default", "entrypoint": "SKILL.md", "requires": ["node", "herdr"], "artifact_schema": null }
+  ]
+}
