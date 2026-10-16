@@ -13,7 +13,9 @@ const load = async name => {
   const dir = resolve(root, name);
   const text = await readFile(resolve(dir, 'SKILL.md'), 'utf8');
   const meta = JSON.parse(await readFile(resolve(dir, 'skill.json'), 'utf8'));
-  return { name, text, meta, ...parseFrontmatter(text) };
+  const refs = await readdir(resolve(dir, 'references')).catch(() => []);
+  const all = text + (await Promise.all(refs.map(r => readFile(resolve(dir, 'references', r), 'utf8')))).join('\n');
+  return { name, text, all, meta, ...parseFrontmatter(text) };
 };
 const skills = await Promise.all(names.map(load));
 
@@ -23,7 +25,7 @@ test('every skill documents each binary its sidecar requires, and each is a know
       for (const id of b.requires) {
         assert.ok(Object.hasOwn(providers, id), `${s.name}: unknown provider ${id}`);
         if (['node', 'git'].includes(id)) continue;
-        assert.ok(s.text.includes(id), `${s.name}: SKILL.md never mentions required ${id}`);
+        assert.ok(s.all.includes(id), `${s.name}: SKILL.md/references never mentions required ${id}`);
       }
     }
   }
