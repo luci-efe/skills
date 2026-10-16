@@ -25,7 +25,7 @@ Then run `/doctor` in your repo. It lists missing tools with the exact install c
 | Decide | `/crucible` | A change is underspecified. It reads code first and asks only the open questions | 06 |
 | Decide | `/council` | A big decision deserves review by several model families in Herdr | 02 · 05 |
 | Build | `/reproduce` | Something is broken. It turns the bug into a failing test first | 03 · 01 |
-| Prove | `/proof` | You're about to say "done". It records checks against the exact code state | 01 · 03 |
+| Prove | `/proof` | You're about to say "done". It records checks against the exact code state | 03 · 01 |
 | Prove | `/red-team` | Dependencies changed or an advisory landed | 03 |
 | Continue | `/relay` | A session hands work to another session, agent, or machine | 04 · 02 |
 
