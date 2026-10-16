@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "stage": "orient",
+  "rule_ids": ["06"],
+  "branches": [{"id":"default","entrypoint":"SKILL.md","requires":["node"],"artifact_schema":null}]
+}

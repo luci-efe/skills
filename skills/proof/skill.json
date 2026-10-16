@@ -1,0 +1,11 @@
+{
+  "schema_version":1,
+  "stage":"prove",
+  "rule_ids":["01","03"],
+  "branches":[
+    {"id":"assertion","entrypoint":"SKILL.md","requires":["node"],"artifact_schema":null},
+    {"id":"perf","entrypoint":"SKILL.md","requires":["node"],"artifact_schema":null},
+    {"id":"visual-web","entrypoint":"references/visual-web.md","requires":["node","playwright"],"artifact_schema":null},
+    {"id":"visual-desktop","entrypoint":"references/visual-desktop.md","requires":["node","cua-driver"],"artifact_schema":null}
+  ]
+}
