@@ -10,7 +10,19 @@ const MAX_ROUNDS = 2
 const stateDirOf = (o) => o.stateDir ?? stateDirectory(o.cwd ?? process.cwd())
 const SEAT = /^[a-z0-9][a-z0-9-]{0,31}$/
 const MIN_REVIEWS = 2
-const saveRun = (dir, run) => { const p = join(dir, 'council.json'); const tmp = `${p}.${process.pid}.tmp`; writeFileSync(tmp, `${JSON.stringify(run, null, 2)}\n`); renameSync(tmp, p) }
+// Windows reports EPERM/EACCES/EBUSY (not EEXIST) for transient sharing conflicts; treat them as contention.
+const TRANSIENT = new Set(['EEXIST', 'EPERM', 'EACCES', 'EBUSY'])
+const pause = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+const retry = (fn, what) => {
+  const until = Date.now() + 10_000
+  for (;;) {
+    try { return fn() } catch (e) {
+      if (!TRANSIENT.has(e.code) || Date.now() > until) throw new Error(`${what}: ${e.message}`)
+      pause(20)
+    }
+  }
+}
+const saveRun = (dir, run) => { const p = join(dir, 'council.json'); const tmp = `${p}.${process.pid}.tmp`; writeFileSync(tmp, `${JSON.stringify(run, null, 2)}\n`); retry(() => renameSync(tmp, p), 'could not save council.json') }
 const lastLine = (text) => text.trimEnd().split('\n').pop().trim()
 const marker = (run, seat, round) => `<!-- council:done run=${run} seat=${seat} round=${round} -->`
 
@@ -54,15 +66,8 @@ export const init = (o) => {
 
 const withLock = (dir, fn) => {
   const lock = join(dir, '.lock')
-  const until = Date.now() + 10_000
-  for (;;) {
-    try { mkdirSync(lock); break } catch (e) {
-      if (e.code !== 'EEXIST') throw e
-      if (Date.now() > until) throw new Error(`council run is locked (${lock}); remove it if no other council command is running`)
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20)
-    }
-  }
-  try { return fn() } finally { rmdirSync(lock) }
+  retry(() => mkdirSync(lock), `council run is locked (${lock}); remove it if no other council command is running`)
+  try { return fn() } finally { retry(() => rmdirSync(lock), `could not release ${lock}`) }
 }
 
 export const markMissing = (args) => withLock(args.dir, () => markMissingUnlocked(args))

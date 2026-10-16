@@ -94,6 +94,7 @@ test('concurrent missing calls do not lose updates', async () => {
   const { spawn } = await import('node:child_process')
   const { fileURLToPath } = await import('node:url')
   const cli = fileURLToPath(new URL('../skills/council/scripts/council.mjs', import.meta.url))
-  await Promise.all(seats.map((s) => new Promise((res) => spawn(process.execPath, [cli, 'missing', '--dir', r.dir, '--round', '1', '--seat', s, '--reason', 'down']).on('close', res))))
+  const codes = await Promise.all(seats.map((s) => new Promise((res) => spawn(process.execPath, [cli, 'missing', '--dir', r.dir, '--round', '1', '--seat', s, '--reason', 'down']).on('close', res))))
+  assert.deepEqual(codes, seats.map(() => 0))
   assert.equal(Object.keys(JSON.parse(readFileSync(join(r.dir, 'council.json'), 'utf8')).missing).length, 6)
 })
