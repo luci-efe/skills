@@ -131,3 +131,19 @@ test('SessionStart never executes an undeclared third-party relay',async()=>{
   const {handleHook}=await import('../lib/hook-adapter.mjs');const cwd=await temp(),root=join(cwd,'skills'),dir=await skill(root,'relay',null);await mkdir(join(dir,'scripts'));await writeFile(join(dir,'scripts/relay.mjs'),'console.log("THIRD PARTY EXECUTED")');
   assert.deepEqual(await handleHook('SessionStart',{cwd},{roots:[root]}),{});
 });
+test('non-git project ignores parent state and sibling edits',async()=>{
+  const {stateDirectory}=await import('../lib/config.mjs');const {realpath}=await import('node:fs/promises');
+  const parent=await realpath(await temp()),cwd=join(parent,'project'),sibling=join(parent,'sibling');
+  await mkdir(cwd);await mkdir(sibling);await mkdir(join(parent,STATE_DIR));await writeFile(join(cwd,'source'),'project');
+  const before=await inputDigest(cwd);await writeFile(join(sibling,'source'),'unrelated edit');
+  assert.deepEqual(await inputDigest(cwd),before);assert.equal(stateDirectory(cwd),join(cwd,STATE_DIR));
+});
+test('non-git project root uses CLAUDE_PROJECT_DIR only when it contains cwd',async()=>{
+  const {workspaceRoot}=await import('../lib/config.mjs');const {realpath}=await import('node:fs/promises');const root=await realpath(await temp()),pkg=join(root,'pkg'),other=await realpath(await temp());await mkdir(pkg);
+  const previous=process.env.CLAUDE_PROJECT_DIR;
+  try {
+    process.env.CLAUDE_PROJECT_DIR=root;assert.equal(workspaceRoot(pkg),root);
+    process.env.CLAUDE_PROJECT_DIR=other;assert.equal(workspaceRoot(pkg),pkg);
+    process.env.CLAUDE_PROJECT_DIR=join(root,'missing');assert.equal(workspaceRoot(pkg),pkg);
+  }finally{if(previous===undefined)delete process.env.CLAUDE_PROJECT_DIR;else process.env.CLAUDE_PROJECT_DIR=previous;}
+});
