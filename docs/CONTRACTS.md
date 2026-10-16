@@ -16,7 +16,7 @@ docs/                         # contracts, provider catalog
 Skills: `doctor compass cartographer crucible council reproduce proof red-team relay` (9).
 
 ## 2. Constants
-`lib/config.mjs` exports `STATE_DIR = process.env.RAMOS_STATE_DIR ?? '.ramos'` and `stateDirectory(cwd)`. State is anchored at the git toplevel, else at the nearest ancestor that already has the state dir, else at cwd, and realpath-canonicalized. Every script resolves state via `stateDirectory()`. No other file may hardcode `.ramos`.
+`lib/config.mjs` exports `STATE_DIR = process.env.RAMOS_STATE_DIR ?? '.ramos'` and `stateDirectory(cwd)`. State is anchored at the git toplevel. Outside git it uses `CLAUDE_PROJECT_DIR` (when it contains cwd), else cwd. Parent folders are never searched, so a stray `~/.ramos` can't capture unrelated projects. The path is realpath-canonicalized. Every script resolves state via `stateDirectory()`. No other file may hardcode `.ramos`.
 
 ## 3. `skill.json` schema (v1)
 ```json
