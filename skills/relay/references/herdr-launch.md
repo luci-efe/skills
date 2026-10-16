@@ -1,6 +1,6 @@
 # Launching a fresh receiver in Herdr
 
-Verified against `herdr` (session `odin`) on 2026-10-15. Treat every ID Herdr returns as opaque; never construct one.
+Verified against herdr 0.7 on 2026-10-15. Treat every ID Herdr returns as opaque; never construct one.
 
 1. `test "${HERDR_ENV:-}" = 1` must hold. Otherwise ask the human to open the receiver themselves and stop here.
 2. Create the pane: `herdr pane split --current --direction right --cwd "$PWD" --no-focus` and read `result.pane.pane_id` from the JSON.

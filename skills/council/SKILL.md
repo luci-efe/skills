@@ -20,6 +20,7 @@ Script: `node <this skill dir>/scripts/council.mjs` (`<this skill dir>` = where 
 3. Send each seat: `Read <dir>/round1.prompt.md and follow it exactly.` (send-text, then Enter, then re-read the pane to confirm it submitted).
 4. Poll `council.mjs status --dir <dir>`. Only files ending with the exact completion marker count.
    - A seat is rate-limited, crashed, or silent past a deadline you set → `council.mjs missing --dir <dir> --round 1 --seat <s> --reason "<why>"`. Continue with the others. Never wait forever, and never pretend it answered.
+   - Each round needs **at least 2 completed reviews**. If fewer can finish, seat a replacement from another family, or stop and report `blocked`. Recording missing seats alone never completes a council.
 5. Round 1 closed → send `round2.prompt.md` (cross-examination). Assign lenses that make seats disagree productively: one attacks complexity and brittleness, one attacks cost and verification, one defends usability.
 6. Round 2 closed → the chair writes `<dir>/SYNTHESIS.md`:
    - **Agreed** (all seats, after concessions)
@@ -34,4 +35,4 @@ Script: `node <this skill dir>/scripts/council.mjs` (`<this skill dir>` = where 
 - Numbers a seat can't back with a measurement are labeled unverified in the synthesis.
 
 ## Done when
-`council.mjs status` reports `complete: true` (every round closed by a marker or a recorded missing seat, and `SYNTHESIS.md` exists), and the human has the decisions list.
+`council.mjs status` reports `complete: true` (every round closed with at least 2 completed reviews, `SYNTHESIS.md` exists, `problems` is empty), and the human has the decisions list. Otherwise report `blocked` with the `problems` list.

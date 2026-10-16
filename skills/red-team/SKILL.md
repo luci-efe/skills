@@ -17,7 +17,7 @@ Separate four findings that are easy to conflate: **affected version**, **suspec
 `osv-scanner scan source -r --format json --output-file .ramos/red-team/osv.json .`
 - Exit `0` → no known vulns in the lockfiles found. Report `not found within stated coverage` and name the lockfiles scanned. Done.
 - Exit `1` → vulns found. Go to 2.
-- Exit `128` → no lockfiles. Report `unknown: no lockfiles`. Don't claim the repo is clean.
+- Exit `128` → no scannable package sources (no lockfiles, or lockfiles with zero packages). Report `unknown: no scannable package sources` and list the files the scanner says it found. Don't claim the repo is clean.
 - Other exits → tool error. That's `unknown`, never a clean bill.
 Offline: add `--offline-vulnerabilities --download-offline-databases`. Go/Rust call analysis: `--call-analysis=go|rust` (Rust runs build scripts, so ask first).
 

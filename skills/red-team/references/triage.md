@@ -19,4 +19,4 @@ Findings vocabulary (exact):
 - `not found within stated coverage`: no usage found by the listed patterns. Say what wasn't covered (dynamic imports, generated code, other languages).
 - `unknown`: a tool error, no lockfile, or unsupported ecosystem.
 
-Verified 2026-10-15 with osv-scanner 2.7.0: JSON has `results[].source.path` and `results[].packages[].package.{name,version,ecosystem}` and `vulnerabilities[].id`. Exit 0 means clean, 1 means vulns found, 128 means no lockfiles.
+Verified 2026-10-15 with osv-scanner 2.7.0: JSON has `results[].source.path` and `results[].packages[].package.{name,version,ecosystem}` and `vulnerabilities[].id`. Exit 0 means clean, 1 means vulns found, 128 means no scannable package sources (also seen with a lockfile that has zero packages).

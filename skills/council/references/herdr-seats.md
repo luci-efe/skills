@@ -1,6 +1,6 @@
 # Seating council members in Herdr
 
-Verified 2026-10-15 with herdr (session `odin`), Codex CLI 0.153.4, Antigravity `agy` 1.3.6, Claude Code.
+Verified 2026-10-15 with herdr 0.7, Codex CLI 0.153, Antigravity `agy` 1.3, Claude Code 2.1.
 
 ## Layout (chair on the left, two seats stacked on the right)
 ```sh
@@ -13,7 +13,7 @@ IDs come from the JSON output. Never construct them.
 ## Starting a seat (flags at spawn time)
 | Family | Command | Notes |
 |---|---|---|
-| OpenAI | `codex -m <model>` | List models with `codex debug models`. ChatGPT-login accounts can't use every API model (`gpt-6.1-sol` returned HTTP 400 on 2026-10-15). |
+| OpenAI | `codex -m <model>` | List models with `codex debug models`. The models available depend on how you're signed in; some API models aren't offered to ChatGPT-login accounts. |
 | Google | `agy --model gemini-4-argon-high` | `agy models` lists the IDs. `gemini -m <model>` is the alternative CLI. |
 | Anthropic | `claude --model <model>` | |
 | Other | `opencode` | |

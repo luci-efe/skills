@@ -1,6 +1,6 @@
 # luci-efe/skills — Build Contracts (v0)
 
-Source of decisions: council synthesis (private). Every seat builds against this file. Change it only via the chair.
+Every implementation builds against this file. Change the contract and the code together.
 
 ## 1. Repo layout
 ```
@@ -61,4 +61,4 @@ SessionStart injection ≤ 400 tokens (≤1600 bytes): status, STALE flag, objec
 - RED → GREEN: a failing `node --test` before implementation. `npm test` must be green before claiming done.
 - SKILL.md < 150 lines, decision-tree form (If X → do Y / read references/Z.md), with explicit completion criteria. Delete any line an LLM already knows (the No-Op test).
 - No invented CLI flags for third-party tools: verify with `--help` and cite it in the reference file.
-- Report with a STATUS v1 envelope (see AGENTS.md) to the chair pane w1H:p1.
+- Report completion with the exact commands run and their observed output.
