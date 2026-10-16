@@ -1,40 +1,15 @@
 {
-  "processes": [
-    {
-      "id": "proc_34_revert_action_log_fr",
-      "name": "revert_action_log_from_missions",
-      "step_count": 2
-    }
-  ],
-  "process_symbols": [
-    {
-      "id": "Function:app/green_iteso/campaigns/services.py:revert_action_log_from_missions",
-      "name": "revert_action_log_from_missions",
-      "filePath": "app/green_iteso/campaigns/services.py",
-      "startLine": 327,
-      "endLine": 340,
-      "module": "Tests",
-      "process_id": "proc_34_revert_action_log_fr",
-      "step_index": 1
-    }
-  ],
-  "definitions": [
-    {
-      "id": "Function:app/green_iteso/actions/selectors.py:list_active_actions",
-      "name": "list_active_actions",
-      "filePath": "app/green_iteso/actions/selectors.py",
-      "startLine": 14,
-      "endLine": 16,
-      "module": "Actions"
-    }
-  ],
+  "processes": [],
+  "process_symbols": [],
+  "definitions": [],
   "timing": {
-    "vector": 18.4,
-    "bm25": 157.6,
-    "merge": 0.1,
-    "symbol_lookup": 427.5,
-    "ranking": 0.1,
-    "formatting": 0.1,
-    "wall": 585.8
-  }
+    "vector": 11.2,
+    "bm25": 12.7,
+    "merge": 0,
+    "symbol_lookup": 0,
+    "ranking": 0,
+    "formatting": 0,
+    "wall": 15.2
+  },
+  "warning": "FTS indexes missing — keyword search degraded. Run: gitnexus analyze --force to rebuild indexes."
 }

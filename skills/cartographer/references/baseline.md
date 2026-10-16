@@ -41,11 +41,11 @@ ast-grep run -p '<pattern>' -l <lang> --json=compact [path...]
   - `ast-grep run -p 'func $NAME($$$) $$$ { $$$ }' -l go`
   - `ast-grep run -p 'func ($RECV $TYPE) $NAME($$$) $$$ { $$$ }' -l go`
 - **Call sites:**
-  - `ast-grep run -p '$PKG.$FUNC($$$)' -l go`
+  - `ast-grep run -p '$F($$$)' -l go`
 
 ## 3. Combining `rg -n` and `ast-grep`
 1. **Locate entrypoints and exact line numbers (1-indexed):**
-   `rg -n --no-heading "<symbol_or_route>"`
+   `rg -n -F --no-heading -- "<symbol_or_route>"`
 2. **Verify AST call edges (eliminating comments and string literals):**
    `ast-grep run -p '<symbol>($$$)' --json`
 3. **Locate covering tests:**

@@ -1,5 +1,5 @@
-Repository: /Users/fr/iteso/9th_semester/proyecto_integrador_desarrollo_software/.worktrees/backend-action-crud-20261001
-Indexed: 10/1/2026, 7:13:41 PM
-Indexed commit: ce7ce15
-Current commit: ce7ce15
+Repository: /private/tmp/carto-capture-n7to4dvu/repo
+Indexed: 10/16/2026, 12:03:20 AM
+Indexed commit: 9ea8a9d
+Current commit: 9ea8a9d
 Status: ✅ up-to-date

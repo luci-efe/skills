@@ -1,23 +1,24 @@
 #!/usr/bin/env node
-import { execFileSync } from 'node:child_process'
-import { accessSync, constants, existsSync, readFileSync } from 'node:fs'
-import { delimiter, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { spawn } from 'node:child_process';
+import { realpathSync } from 'node:fs';
+import { extname, isAbsolute, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { probe } from './_lib/probe.mjs';
 
-const findBinaryOnPath = (bin, pathEnv = '') => {
-  const dirs = String(pathEnv).split(delimiter).filter(Boolean)
-  for (const dir of dirs) {
-    const candidate = join(dir, bin)
-    try {
-      accessSync(candidate, constants.X_OK)
-      return candidate
-    } catch {
-      // continue scanning PATH
-    }
-  }
-  return null
+// Keep complete JSON lines when a search exceeds the bounded output budget.
+export function execute(bin,args,{cwd,env,timeout=30000,maxOutput=4*1024*1024}={}) {
+  return new Promise(done=>{
+    const child=spawn(bin,args,{cwd,env,shell:false,windowsHide:true,stdio:['ignore','pipe','pipe']});
+    let stdout='',stderr='',bytes=0,truncated=false,error=null;
+    const stop=()=>{child.kill('SIGKILL');child.stdout.destroy();child.stderr.destroy();};
+    const timer=setTimeout(()=>{error='timeout';stop();},timeout);
+    child.stdout.setEncoding('utf8');child.stderr.setEncoding('utf8');
+    child.stdout.on('data',chunk=>{bytes+=Buffer.byteLength(chunk);if(bytes>maxOutput){truncated=true;stop();}else stdout+=chunk.toString();});
+    child.stderr.on('data',chunk=>{if(stderr.length<16384)stderr+=chunk.toString();});
+    child.on('error',err=>{error=err.code??err.message;});
+    child.on('close',code=>{clearTimeout(timer);done({code,stdout,stderr,error,truncated});});
+  });
 }
-
 const stripAnsi = (str) => String(str ?? '').replace(/\x1b\[[0-9;]*m/g, '')
 
 export const parseGitNexusStatus = (raw) => {
@@ -46,274 +47,141 @@ export const parseGitNexusStatus = (raw) => {
   return { gitnexus: 'unindexed', indexed: null, current: null }
 }
 
-export const parsePorcelainPaths = (raw) => {
-  const lines = String(raw ?? '')
-    .split(/\r?\n/)
-    .filter((line) => line.trim().length > 0)
-  const paths = []
-  for (const line of lines) {
-    const body = line.length > 3 ? line.slice(3).trim() : line.trim()
-    if (!body) continue
-    const arrowIdx = body.indexOf(' -> ')
-    const relPath = arrowIdx >= 0 ? body.slice(arrowIdx + 4).trim() : body
-    const unquoted = relPath.replace(/^"(.*)"$/, '$1')
-    if (unquoted && !paths.includes(unquoted)) {
-      paths.push(unquoted)
-    }
+export const parsePorcelainPaths = raw => {
+  const entries=String(raw).split('\0'),paths=[];
+  for(let i=0;i<entries.length;i++) {
+    const entry=entries[i];if(!entry)continue;
+    paths.push(entry.slice(3));
+    if(/[RC]/.test(entry.slice(0,2)))paths.push(entries[++i]);
   }
-  return paths
+  return [...new Set(paths.filter(Boolean))];
+};
+const failed=r=>r.error||r.truncated||![0,1].includes(r.code);
+const diagnostic=r=>r.error??(r.truncated?'output limit exceeded':r.stderr.trim()||`exit ${r.code}`);
+const git=(args,options)=>execute('git',['--no-optional-locks',...args],{...options,timeout:5000});
+async function repository(options) {
+  const result=await git(['rev-parse','--show-toplevel'],options);
+  if(result.code===0)return realpathSync(result.stdout.trim());
+  if(result.stderr.includes('not a git repository'))return realpathSync(options.cwd);
+  throw new Error(`git root: ${diagnostic(result)}`);
 }
-
-const getGitHeadShort = (cwd, env) => {
+export async function status({cwd=process.cwd(),env=process.env}={}) {
+  const required=await probe(['git'],{cwd,env});
+  if(!required[0].ok)return {gitnexus:'error',status:'blocked',missing_tools:required,errors:['git unavailable'],dirty_files:[]};
   try {
-    return execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
-      cwd,
-      env,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim() || null
-  } catch {
-    return null
-  }
+    cwd=await repository({cwd,env});
+    const head=await git(['rev-parse','--short','HEAD'],{cwd,env});
+    const dirty=await git(['status','--porcelain=v1','-z','--untracked-files=all'],{cwd,env});
+    const errors=dirty.code!==0&&!dirty.stderr.includes('not a git repository')?[`git status: ${diagnostic(dirty)}`]:[];
+    const base={root:cwd,indexed:null,current:head.code===0?head.stdout.trim():null,dirty_files:dirty.code===0?parsePorcelainPaths(dirty.stdout):[],errors};
+    const ready=(await probe(['gitnexus'],{cwd,env}))[0];
+    if(!ready.ok)return {...base,gitnexus:ready.diagnostic?.includes('ENOENT')?'absent':'error',...(ready.diagnostic?.includes('ENOENT')?{}:{gitnexus_error:ready.diagnostic,status:'blocked'})};
+    const result=await execute('gitnexus',['status'],{cwd,env,timeout:5000});
+    const raw=result.stdout+'\n'+result.stderr,parsed=parseGitNexusStatus(raw);
+    if(result.error||result.truncated||(result.code!==0&&!/Repository not indexed|stale KuzuDB index|Not a git repository/i.test(raw)))return {...base,gitnexus:'error',gitnexus_error:diagnostic(result),status:'blocked'};
+    if(parsed.gitnexus==='unindexed'&&!/Repository not indexed|stale KuzuDB index|Not a git repository/i.test(raw))return {...base,gitnexus:'error',gitnexus_error:'unrecognized status output',status:'blocked'};
+    return {...base,...parsed,current:parsed.current??base.current};
+  } catch(error) {return {gitnexus:'error',status:'blocked',errors:[error.message],dirty_files:[]};}
 }
-
-const getDirtyFiles = (cwd, env) => {
-  try {
-    const out = execFileSync('git', ['status', '--porcelain'], {
-      cwd,
-      env,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-    return parsePorcelainPaths(out)
-  } catch {
-    return []
-  }
+function jsonLines(result) {
+  const lines=result.stdout.split('\n');
+  if(result.truncated)lines.pop();
+  return lines.filter(Boolean).map(line=>JSON.parse(line));
 }
-
-export const status = async ({ cwd = process.cwd(), env = process.env } = {}) => {
-  const dirty_files = getDirtyFiles(cwd, env)
-  const headShort = getGitHeadShort(cwd, env)
-  const gitnexusBin = findBinaryOnPath('gitnexus', env.PATH)
-
-  if (!gitnexusBin) {
-    return {
-      gitnexus: 'absent',
-      indexed: null,
-      current: headShort,
-      dirty_files,
-    }
+const escapeRegex=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+// shortcut: automatic definition verification covers Python and JS/TS; other languages stay unverified until structural rules are added.
+function definitionRule(sym) {
+  const extension=extname(sym.filePath),python=extension==='.py';
+  const language=python?'Python':({'.js':'JavaScript','.jsx':'Jsx','.mjs':'JavaScript','.cjs':'JavaScript','.ts':'TypeScript','.tsx':'Tsx'})[extension];
+  const kind=sym.id?.split(':')[0],kinds=python?{Function:'function_definition',Method:'function_definition',Class:'class_definition'}:{Function:'function_declaration',Method:'method_definition',Class:'class_declaration',Interface:'interface_declaration',TypeAlias:'type_alias_declaration',Variable:'variable_declarator'};
+  if(!language||!kinds[kind])return null;
+  const all=[{kind:kinds[kind]},{has:{field:'name',regex:`^${escapeRegex(sym.name)}$`}}];
+  if(kind==='Method') {
+    const qualified=sym.id.slice(sym.id.lastIndexOf(':')+1).split('.');
+    if(qualified.length!==2)return null;
+    all.push({inside:{kind:python?'class_definition':'class_declaration',has:{field:'name',regex:`^${escapeRegex(qualified[0])}$`},stopBy:'end'}});
   }
-
-  try {
-    const out = execFileSync(gitnexusBin, ['status'], {
-      cwd,
-      env,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    const parsed = parseGitNexusStatus(out)
-    return {
-      gitnexus: parsed.gitnexus,
-      indexed: parsed.indexed,
-      current: parsed.current ?? headShort,
-      dirty_files,
-    }
-  } catch (err) {
-    const combined = `${err?.stdout ?? ''}\n${err?.stderr ?? ''}`
-    const parsed = parseGitNexusStatus(combined)
-    return {
-      gitnexus: parsed.gitnexus,
-      indexed: parsed.indexed,
-      current: parsed.current ?? headShort,
-      dirty_files,
-    }
-  }
+  return {id:'definition',language,rule:{all}};
 }
-
-const verifySymbolLive = (cwd, filePath, symbolName) => {
-  const absPath = join(cwd, filePath)
-  if (!existsSync(absPath)) {
-    return { verified: false, live_line: null }
-  }
-  try {
-    const content = readFileSync(absPath, 'utf8')
-    const lines = content.split(/\r?\n/)
-    const escaped = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const defRegex = new RegExp(`(?:def|class|function|const|let|var|type|interface|func)\\s+${escaped}\\b`)
-    for (let i = 0; i < lines.length; i++) {
-      if (defRegex.test(lines[i])) {
-        return { verified: true, live_line: i + 1 }
-      }
-    }
-    const wordRegex = new RegExp(`\\b${escaped}\\b`)
-    for (let i = 0; i < lines.length; i++) {
-      if (wordRegex.test(lines[i])) {
-        return { verified: true, live_line: i + 1 }
-      }
-    }
-  } catch {
-    // ignore read errors
-  }
-  return { verified: false, live_line: null }
+async function verifySymbolLive(sym,{cwd,env}) {
+  const base={id:sym.id,name:sym.name,filePath:sym.filePath,indexed_line:sym.startLine,verified:false,live_line:null,definition_found:false,ambiguous:false};
+  const rule=definitionRule(sym);
+  if(!rule)return {...base,reason:'unsupported definition kind or language'};
+  let path;
+  try {path=realpathSync(resolve(cwd,sym.filePath));}catch(error){if(error.code==='ENOENT')return {...base,reason:'indexed file missing; search baseline for moves'};throw error;}
+  const rel=relative(cwd,path);
+  if(rel==='..'||rel.startsWith(`..${sep}`)||isAbsolute(rel))throw new Error('indexed path escapes repository');
+  const result=await execute('ast-grep',['scan','--inline-rules',JSON.stringify(rule),'--json=stream','--',path],{cwd,env});
+  if(failed(result))throw new Error(`ast-grep: ${diagnostic(result)}`);
+  const candidates=jsonLines(result).map(m=>m.range.start.line+1);
+  const window=Math.max(3,Math.min(20,(sym.endLine??sym.startLine)-sym.startLine));
+  const nearby=candidates.filter(line=>Math.abs(line-sym.startLine)<=window);
+  return {...base,definition_found:candidates.length>0,ambiguous:nearby.length>1,verified:nearby.length===1,live_line:nearby.length===1?nearby[0]:null,...(nearby.length===0?{reason:'no definition within indexed line window; use baseline to locate moves'}:{})};
 }
-
-const runRipgrepBaseline = (concept, cwd, env) => {
-  const rgBin = findBinaryOnPath('rg', env.PATH)
-  if (!rgBin) return []
-  try {
-    const out = execFileSync(
-      rgBin,
-      ['-n', '--no-heading', '--color', 'never', '--', concept, '.'],
-      {
-        cwd,
-        env,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      },
-    )
-    const matches = []
-    for (const line of out.split(/\r?\n/)) {
-      if (!line.trim()) continue
-      const match = line.match(/^([^:]+):(\d+):(.*)$/)
-      if (!match) continue
-      const file = match[1].replace(/^\.\//, '')
-      matches.push({
-        file,
-        line: Number(match[2]),
-        text: match[3].trim(),
-      })
-    }
-    return matches
-  } catch {
-    return []
-  }
-}
-
-const runAstGrepBaseline = (pattern, lang, cwd, env) => {
-  const astGrepBin = findBinaryOnPath('ast-grep', env.PATH)
-  if (!astGrepBin || !pattern) return []
-  const args = ['run', '-p', pattern, '--json']
-  if (lang) {
-    args.push('-l', lang)
-  }
-  try {
-    const out = execFileSync(astGrepBin, args, {
-      cwd,
-      env,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-    const parsed = JSON.parse(out || '[]')
-    if (!Array.isArray(parsed)) return []
-    return parsed.map((item) => ({
-      file: String(item.file ?? '').replace(/^\.\//, ''),
-      line: Number(item.range?.start?.line ?? 0) + 1,
-      text: String(item.text ?? '').trim(),
-    }))
-  } catch {
-    return []
-  }
-}
-
-export const query = async (
-  concept,
-  { cwd = process.cwd(), env = process.env, repo, limit = 5, pattern, lang } = {},
-) => {
-  const st = await status({ cwd, env })
-
-  if (st.gitnexus === 'fresh' || st.gitnexus === 'stale') {
-    const gitnexusBin = findBinaryOnPath('gitnexus', env.PATH)
-    const args = ['query', concept]
-    if (repo) args.push('-r', String(repo))
-    if (limit) args.push('-l', String(limit))
-
+export async function query(concept,{cwd=process.cwd(),env=process.env,repo,limit=5,pattern,lang,regex=false}={}) {
+  const st=await status({cwd,env});
+  if(st.status==='blocked'||st.errors.length)return {...st,status:'blocked'};
+  cwd=st.root;
+  if(repo!==undefined)return {...st,status:'blocked',errors:['--repo is not supported; run from the target repository instead']};
+  if(!Number.isSafeInteger(limit)||limit<1||limit>100)return {...st,status:'blocked',errors:['limit must be an integer from 1 to 100']};
+  if(!pattern&&(st.gitnexus==='fresh'||st.gitnexus==='stale')) {
+    const result=await execute('gitnexus',['query','-l',String(limit),'--',concept],{cwd,env});
     try {
-      const raw = execFileSync(gitnexusBin, args, {
-        cwd,
-        env,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
-      const parsed = JSON.parse(raw)
-      const processSymbols = Array.isArray(parsed.process_symbols) ? parsed.process_symbols : []
-      const definitions = Array.isArray(parsed.definitions) ? parsed.definitions : []
-      const allSymbols = [...processSymbols, ...definitions]
-
-      const resultPaths = new Set(
-        allSymbols.map((s) => s?.filePath).filter((p) => typeof p === 'string' && p.length > 0),
-      )
-      const intersecting_dirty_files = st.dirty_files.filter((f) => resultPaths.has(f))
-      const stale_overlay = st.gitnexus !== 'fresh' || intersecting_dirty_files.length > 0
-
-      if (!stale_overlay) {
-        return {
-          mode: 'gitnexus',
-          gitnexus: st.gitnexus,
-          stale_overlay: false,
-          indexed: st.indexed,
-          current: st.current,
-          dirty_files: st.dirty_files,
-          ...parsed,
-        }
+      if(result.code!==0||result.error||result.truncated)throw new Error(diagnostic(result));
+      const parsed=JSON.parse(result.stdout);
+      for(const field of ['process_symbols','definitions'])parsed[field]=(parsed[field]??[]).map(sym=>({...sym,startLine:Number.isInteger(sym.startLine)?sym.startLine+1:null,endLine:Number.isInteger(sym.endLine)?sym.endLine+1:null}));
+      const symbols=[...parsed.process_symbols,...parsed.definitions];
+      const intersecting_dirty_files=st.dirty_files.filter(file=>symbols.some(sym=>sym.filePath===file));
+      const stale_overlay=st.gitnexus==='stale'||intersecting_dirty_files.length>0;
+      const output={...parsed,...st,mode:'gitnexus',stale_overlay,intersecting_dirty_files};
+      if(!stale_overlay)return output;
+      const missing_tools=(await probe(['ast-grep'],{cwd,env})).filter(row=>!row.ok);
+      if(missing_tools.length)return {...output,status:'blocked',missing_tools};
+      const seen=new Set();output.verified_symbols=[];
+      for(const sym of symbols) {
+        if(!sym.name||!sym.filePath||sym.startLine===null||sym.id?.startsWith('File:'))continue;
+        const key=JSON.stringify([sym.id,sym.filePath,sym.name,sym.startLine]);
+        if(seen.has(key))continue;seen.add(key);
+        try {output.verified_symbols.push(await verifySymbolLive(sym,{cwd,env}));}
+        catch(error){output.errors.push(error.message);output.status='blocked';}
       }
-
-      const seenSymbolKeys = new Set()
-      const verified_symbols = []
-      for (const sym of allSymbols) {
-        if (!sym?.name || !sym?.filePath) continue
-        if (typeof sym.id === 'string' && sym.id.startsWith('File:')) continue
-        const key = `${sym.filePath}::${sym.name}`
-        if (seenSymbolKeys.has(key)) continue
-        seenSymbolKeys.add(key)
-
-        const live = verifySymbolLive(cwd, sym.filePath, sym.name)
-        verified_symbols.push({
-          name: sym.name,
-          filePath: sym.filePath,
-          indexed_line: sym.startLine ?? null,
-          verified: live.verified,
-          live_line: live.live_line,
-        })
-      }
-
-      return {
-        mode: 'gitnexus',
-        gitnexus: st.gitnexus,
-        stale_overlay: true,
-        indexed: st.indexed,
-        current: st.current,
-        dirty_files: st.dirty_files,
-        intersecting_dirty_files,
-        verified_symbols,
-        ...parsed,
-      }
-    } catch {
-      // Fall through to baseline if gitnexus query errors out
+      return output;
+    }catch(error){return {...st,status:'blocked',gitnexus_error:error.message,errors:[`gitnexus query: ${error.message}`]};}
+  }
+  const missing_tools=(await probe(['rg','ast-grep'],{cwd,env})).filter(row=>!row.ok);
+  const output={...st,mode:'baseline',stale_overlay:false,missing_tools,rg_matches:[],ast_matches:[],truncated:false};
+  if(missing_tools.length)return {...output,status:'blocked'};
+  const rg=await execute('rg',['--json','--max-count','100',...(regex?[]:['--fixed-strings']),'--',concept,'.'],{cwd,env});
+  try {
+    if(rg.error||(!rg.truncated&&![0,1].includes(rg.code)))throw new Error(`rg: ${diagnostic(rg)}`);
+    const records=jsonLines(rg),perFile=new Map();
+    for(const record of records)if(record.type==='match') {
+      const data=record.data,file=data.path.text??Buffer.from(data.path.bytes,'base64').toString();
+      perFile.set(file,(perFile.get(file)??0)+1);
+      if(output.rg_matches.length<200)output.rg_matches.push({file:file.replace(/^\.\//,''),line:data.line_number,text:(data.lines.text??Buffer.from(data.lines.bytes,'base64').toString()).trim().slice(0,1000)});
+      else output.truncated=true;
     }
+    output.truncated ||= rg.truncated||[...perFile.values()].some(n=>n>=100);
+  }catch(error){output.errors.push(error.message);}
+  if(pattern) {
+    const ast=await execute('ast-grep',['run','-p',pattern,'--json=stream',...(lang?['-l',lang]:[]),'.'],{cwd,env});
+    try {
+      if(ast.error||(!ast.truncated&&![0,1].includes(ast.code)))throw new Error(`ast-grep: ${diagnostic(ast)}`);
+      const records=jsonLines(ast);output.ast_matches=records.slice(0,200).map(m=>({file:m.file.replace(/^\.\//,''),line:m.range.start.line+1,text:m.text.slice(0,1000)}));
+      output.truncated ||= ast.truncated||records.length>200;
+    }catch(error){output.errors.push(error.message);}
   }
-
-  const rg_matches = runRipgrepBaseline(concept, cwd, env)
-  const ast_matches = runAstGrepBaseline(pattern ?? concept, lang, cwd, env)
-
-  return {
-    mode: 'baseline',
-    gitnexus: st.gitnexus,
-    stale_overlay: false,
-    indexed: st.indexed,
-    current: st.current,
-    dirty_files: st.dirty_files,
-    rg_matches,
-    ast_matches,
-  }
+  if(output.errors.length)output.status='blocked';
+  return output;
 }
-
 const parseCliArgs = (argv) => {
   const positional = []
   const flags = {}
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
-    if (arg === '--repo' || arg === '-r') {
+    if (arg === '--') { positional.push(...argv.slice(i+1)); break;
+    } else if (arg === '--regex') { flags.regex=true;
+    } else if (arg === '--repo' || arg === '-r') {
       flags.repo = argv[++i]
     } else if (arg === '--limit' || arg === '-l') {
       flags.limit = Number(argv[++i])
@@ -338,13 +206,14 @@ const main = async () => {
   if (subcommand === 'status') {
     const result = await status({ cwd })
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
+    if(result.status==='blocked')process.exitCode=2;
     return
   }
 
   if (subcommand === 'query') {
     const concept = positional[1]
     if (!concept) {
-      process.stderr.write('Usage: cartographer.mjs query "<concept>" [--repo <r>] [--limit <n>] [--pattern <p>] [--lang <l>]\n')
+      process.stderr.write('Usage: cartographer.mjs query "<concept>" [--limit <n>] [--pattern <p>] [--lang <l>] [--regex]\n')
       process.exit(1)
     }
     const result = await query(concept, {
@@ -353,8 +222,10 @@ const main = async () => {
       limit: flags.limit ?? 5,
       pattern: flags.pattern,
       lang: flags.lang,
+      regex: flags.regex,
     })
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
+    if(result.status==='blocked')process.exitCode=2;
     return
   }
 

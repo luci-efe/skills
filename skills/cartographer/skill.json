@@ -3,7 +3,7 @@
   "stage": "orient",
   "rule_ids": ["04", "01"],
   "branches": [
-    { "id": "baseline", "entrypoint": "SKILL.md", "requires": ["rg", "ast-grep"], "artifact_schema": null },
-    { "id": "gitnexus", "entrypoint": "SKILL.md", "requires": ["gitnexus"], "artifact_schema": null }
+    { "id": "baseline", "entrypoint": "SKILL.md", "requires": ["git", "rg", "ast-grep"], "artifact_schema": null },
+    { "id": "gitnexus", "entrypoint": "SKILL.md", "requires": ["git", "gitnexus"], "artifact_schema": null }
   ]
 }

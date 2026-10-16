@@ -1,13 +1,13 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { lstat, readFile, readlink, readdir } from 'node:fs/promises';
+import { lstat, readFile, readlink, readdir, realpath } from 'node:fs/promises';
 import { resolve, relative, sep } from 'node:path';
-import { STATE_DIR } from './config.mjs';
+import { stateDirectory, workspaceRoot } from './config.mjs';
 const hash = value => createHash('sha256').update(value).digest('hex');
-function git(cwd, args) { return execFileSync('git', args, { cwd, encoding: 'utf8', timeout: 5000, maxBuffer: 32*1024*1024, stdio: ['ignore','pipe','pipe'] }); }
+function git(cwd, args) { return execFileSync('git', ['--no-optional-locks',...args], { cwd, encoding: 'utf8', timeout: 5000, maxBuffer: 32*1024*1024, stdio: ['ignore','pipe','pipe'] }); }
 export async function inputDigest(cwd = process.cwd()) {
-  cwd = resolve(cwd); let root = cwd, head = null, files;
-  const state = resolve(cwd, STATE_DIR);
+  cwd = await realpath(cwd); let root = workspaceRoot(cwd), head = null, files;
+  const state = stateDirectory(cwd);
   let isGit = false;
   try { root = git(cwd, ['rev-parse','--show-toplevel']).trim(); isGit = true; } catch (error) {
     if (error.code !== 'ENOENT' && !String(error.stderr).includes('not a git repository')) throw error;
@@ -44,6 +44,7 @@ export async function inputDigest(cwd = process.cwd()) {
       const absolute = resolve(root,path), stat = await lstat(absolute);
       if (stat.isSymbolicLink()) { kind = 'symlink'; content = await readlink(absolute); }
       else if (stat.isFile()) content = await readFile(absolute);
+      else if (stat.isDirectory()) { kind = 'gitlink'; content = JSON.stringify(await inputDigest(absolute)); }
       else throw new Error(`Cannot digest non-file input: ${path}`);
     } catch (error) { if (error.code === 'ENOENT') { kind = 'deleted'; content = ''; } else throw error; }
     entries.push([path.split(sep).join('/'),hash(content),kind]);

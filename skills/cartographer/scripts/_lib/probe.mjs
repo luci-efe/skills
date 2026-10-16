@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import providers from './providers.mjs';
 
-export async function probe(providerIds, { cwd = process.cwd(), timeoutMs = 5000, maxOutput = 16384, catalog = providers } = {}) {
+export async function probe(providerIds, { cwd = process.cwd(), timeoutMs = 5000, maxOutput = 16384, catalog = providers, env = process.env } = {}) {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) throw new TypeError('timeoutMs must be a positive integer');
   if (!Number.isSafeInteger(maxOutput) || maxOutput <= 0) throw new TypeError('maxOutput must be a positive integer');
   return Promise.all(providerIds.map((id) => new Promise((done) => {
@@ -35,7 +35,7 @@ export async function probe(providerIds, { cwd = process.cwd(), timeoutMs = 5000
     };
     try {
       const bin = provider.local ? resolve(cwd, argv[0]) : argv[0];
-      child = spawn(bin, argv.slice(1), { cwd, shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+      child = spawn(bin, argv.slice(1), { cwd, env, shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     } catch {
       finish(false, 'unable to start probe');
       return;
