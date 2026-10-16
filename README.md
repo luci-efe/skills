@@ -33,7 +33,7 @@ Rules: **01** Observable · **02** Not a clipboard · **03** Evidence of done ·
 
 ## How it behaves
 - **Fails fast on missing tools.** Each skill branch declares its tools in `skill.json`. A missing tool blocks only that branch and prints the install command. Nothing silently degrades.
-- **One hard gate.** With hooks installed, once a Claude Code session has run `/proof` (which arms the gate for that session), the session can't end while its evidence is missing, failing, or stale for the current code, unless the run is recorded as blocked, failed, or cancelled with a reason. The gate doesn't read the conversation: a session that never ran `/proof` isn't blocked. Every other hook is advisory. In other harnesses the same scripts run as manual checks.
+- **One hard gate.** With hooks installed, once a Claude Code session has a passing `/proof` run (which arms the gate for that session), the session can't end while its evidence is missing, failing, or stale for the current code, unless the run is recorded as blocked, failed, or cancelled with a reason. The gate doesn't read the conversation: a session without a passing `/proof` run isn't blocked. Every other hook is advisory. In other harnesses the same scripts run as manual checks.
 - **State lives in `.ramos/`** (override with `RAMOS_STATE_DIR`). Add it to `.gitignore` unless you want evidence committed.
 - **"Done" vs. "verified".** The local gate prevents accidental false completion claims; hand-written evidence can still pass it. CI re-execution plus independent review earns `verified`.
 
@@ -52,6 +52,7 @@ Rules: **01** Observable · **02** Not a clipboard · **03** Evidence of done ·
 | cua-driver | proof visual-desktop | from [cua.ai](https://cua.ai) (macOS). This suite doesn't verify the install; `/doctor` only checks that `cua-driver` is on PATH |
 
 ## Develop
+Requires node ≥22, git, ripgrep, ast-grep, and mnemosyne on PATH (the relay memory tests and the cartographer ast-grep test must not skip).
 ```sh
 npm test                 # node --test
 npm run lint:skills      # frontmatter, size, skill.json schema
@@ -74,7 +75,7 @@ Plugin de Claude Code: `claude plugin marketplace add luci-efe/skills` y luego `
 
 ### Cómo se comporta
 - **Falla rápido si falta una herramienta.** Muestra el comando exacto de instalación y nunca degrada en silencio.
-- **Una sola compuerta obligatoria.** Con los hooks instalados, una vez que una sesión de Claude Code ejecutó `/proof` (eso activa la compuerta para esa sesión), la sesión no puede terminar si su evidencia falta, falló o quedó desactualizada respecto al código, salvo que la ejecución quede registrada como bloqueada, fallida o cancelada con un motivo. La compuerta no lee la conversación: una sesión que nunca ejecutó `/proof` no se bloquea. Los demás hooks solo sugieren.
+- **Una sola compuerta obligatoria.** Con los hooks instalados, una vez que una sesión de Claude Code tiene una ejecución de `/proof` que pasó (eso activa la compuerta para esa sesión), la sesión no puede terminar si su evidencia falta, falló o quedó desactualizada respecto al código, salvo que la ejecución quede registrada como bloqueada, fallida o cancelada con un motivo. La compuerta no lee la conversación: una sesión sin una ejecución de `/proof` que pasó no se bloquea. Los demás hooks solo sugieren.
 - **El estado vive en `.ramos/`** (se puede cambiar con `RAMOS_STATE_DIR`).
 - **"Terminado" vs. "verificado".** La compuerta local evita declaraciones accidentales de finalización; una evidencia escrita a mano aún puede pasarla. La reejecución en CI y una revisión independiente permiten llamarlo verificado.
 
