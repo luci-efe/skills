@@ -7,7 +7,7 @@ description: Use when a consequential decision or artifact (architecture plan, s
 
 Several model families review **one artifact** in bounded rounds, talking through files and Herdr panes, never through the human's clipboard.
 
-Script: `node skills/council/scripts/council.mjs`. Seat transport: `references/herdr-seats.md`.
+Script: `node <this skill dir>/scripts/council.mjs` (`<this skill dir>` = where this SKILL.md is installed). Seat transport: `references/herdr-seats.md`.
 
 ## Preflight (hard)
 - An artifact file exists: a plan, spec, diff (`git diff > .ramos/council/review.diff`), or a one-page problem statement. No artifact → write the problem statement first, or stop. A council without an artifact doesn't start.

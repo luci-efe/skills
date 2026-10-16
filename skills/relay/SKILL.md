@@ -7,7 +7,7 @@ description: Use when a session must hand work to a fresh session, another agent
 
 A handoff is a transfer of ownership, not a summary. The JSON checkpoint is the source of truth; `HANDOFF.md` is generated from it; lasting decisions go to mnemosyne.
 
-Script: `node skills/relay/scripts/relay.mjs` (run from repo root). State lives under `.ramos/runs/<run>/<pane>/checkpoints/<n>/`.
+Script: `node <this skill dir>/scripts/relay.mjs` (run with the repo root as cwd; `<this skill dir>` is where this SKILL.md is installed, e.g. `.claude/skills/relay`). State lives under `.ramos/runs/<run>/<pane>/checkpoints/<n>/`.
 
 ## Preflight (hard)
 - `mnemosyne` on PATH? If not → stop, print `uv tool install --python 3.12 mnemosyne-memory`, report `blocked`. Do not hand off without it.

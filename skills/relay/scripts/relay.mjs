@@ -146,7 +146,7 @@ export const inject = (o) => {
       lines.push(`memory: unavailable (${err.message.slice(0, 80)})`)
     }
   }
-  lines.push(`read: node skills/relay/scripts/relay.mjs read ${readJson(assignedPath).checkpoint}`)
+  lines.push(`read: node ${relative(process.cwd(), import.meta.dirname ?? '.')}/relay.mjs read ${readJson(assignedPath).checkpoint}`)
   let out = lines.join('\n')
   while (Buffer.byteLength(out) > INJECT_BYTES && lines.length > 3) { lines.splice(lines.length - 2, 1); out = lines.join('\n') }
   return Buffer.byteLength(out) > INJECT_BYTES ? out.slice(0, INJECT_BYTES - 1) : out
