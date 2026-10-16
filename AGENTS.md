@@ -15,7 +15,7 @@ Mission `skills-council`. Chair/integrator: `skills-council-chair-1` (pane w1H:p
 Rules: write only inside your worktree and your owned paths. Never reset, clean, rebase, force, or delete anything. Never push or publish (the chair asks Fernando first). Commit to your own branch with a clear message.
 
 ## Reporting (STATUS v1)
-Send to the chair pane with `herdr pane send-text w1H:p1 '<envelope>'` followed by `herdr pane send-keys w1H:p1 Enter`. Alternatively, append the envelope to `.council/inbox/<seat>.md`, which the chair reads.
+Append the envelope to `/Users/fr/code/skills_repo/.council/inbox/<seat>.md` (the chair polls it). Do not type into the chair pane.
 ```
 STATUS v1
 status: working | blocked | review | done | failed
