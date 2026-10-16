@@ -4,14 +4,14 @@ import { inside } from './files.mjs';
 import { discoverSkills } from './skills.mjs';
 import { probe } from './probe.mjs';
 const intents = [
-  ['doctor','orient',/\b(install|setup|doctor|missing binary|dependencies)\b/i,'check installation and prerequisites'],
+  ['doctor','orient',/\b(install|setup|doctor|missing (?:binary|tool|dependenc\w*))\b/i,'check installation and prerequisites'],
   ['reproduce','build',/\b(bug|regression|reproduce|failing|broken|debug)\b/i,'isolate failing behavior'],
-  ['red-team','prove',/\b(cve|vulnerab\w*|exploit|security audit)\b/i,'investigate security exposure'],
+  ['red-team','prove',/\b(cve|vulnerab\w*|exploit|security audit|advisor(?:y|ies))\b/i,'investigate security exposure'],
   ['relay','continue',/\b(handoff|hand off|continue session|context window|resume)\b/i,'continue from a checkpoint'],
   ['council','decide',/\b(council|debate|independent review|second opinion)\b/i,'review an artifact independently'],
   ['cartographer','orient',/\b(architecture|domain|codebase|flow|navigate)\b/i,'trace a domain or flow'],
   ['crucible','decide',/\b(requirements|scope|clarify|design|trade.?off)\b/i,'resolve scope and design forks'],
-  ['proof','prove',/\b(verify|verification|proof|test|tests|ship|benchmark|visual)\b/i,'verify completion evidence'],
+  ['proof','prove',/\b(verify|verification|proof|test|tests|ship|benchmark|visual|validate|prove|works|done)\b/i,'verify completion evidence'],
   ['compass','orient',/\b(which skill|route|compass)\b/i,'find the next skill'],
 ];
 function explicitSkill(prompt,skills) {return [...prompt.matchAll(/(?:^|\s)\/([a-z][a-z-]*)(?=$|[\s.,!?])/g)].find(m=>skills.some(s=>s.name===m[1]))?.[1];}

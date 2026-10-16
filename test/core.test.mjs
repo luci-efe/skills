@@ -41,11 +41,12 @@ test('git digest includes staged, unstaged, untracked, and excludes ignored file
   git(cwd,'add','tracked');assert.deepEqual(await inputDigest(cwd),dirty);
   await writeFile(join(cwd,'new'),'three');assert.notEqual((await inputDigest(cwd)).input_digest,dirty.input_digest);
 });
-test('frontmatter supports BOM, CRLF, scalar, quotes and folded descriptions; rejects duplicate/extra keys',()=>{
+test('frontmatter supports BOM, CRLF, scalar, quotes and folded descriptions; rejects duplicates, ignores extra keys',()=>{
   assert.deepEqual(parseFrontmatter('\uFEFF---\r\nname: proof\r\ndescription: >\r\n  Use when checking\r\n  a result.\r\n---\r\nbody'),{name:'proof',description:'Use when checking a result.'});
   assert.equal(parseFrontmatter('---\nname: \'proof\'\ndescription: "Use when: checking # outcomes"\n---\n').description,'Use when: checking # outcomes');
   assert.throws(()=>parseFrontmatter('---\nname: x\nname: y\ndescription: Use when x\n---'),/duplicate/i);
-  assert.throws(()=>parseFrontmatter('---\nname: x\ndescription: Use when x\nrequires: git\n---'),/keys/i);
+  assert.deepEqual(parseFrontmatter('---\nname: x\ndescription: Use when x\nallowed-tools:\n  - Bash\nlicense: MIT\n---'),{name:'x',description:'Use when x'});
+  assert.throws(()=>parseFrontmatter('---\nname: x\n---'),/requires name and description/i);
   assert.throws(()=>parseFrontmatter('---\nname: x\ndescription: [bad]\n---'));
 });
 test('discovery detects new/deleted metadata and undeclared third-party dependencies',async()=>{

@@ -12,9 +12,10 @@ export function parseFrontmatter(text) {
   const out = {};
   for(let i=1;i<end;i++) {
     if(!lines[i].trim() || lines[i].trimStart().startsWith('#')) continue;
-    const match = /^([a-z_]+):\s*(.*)$/.exec(lines[i]);
-    if(!match) throw new Error('Unsupported frontmatter syntax');
-    const [,key,raw] = match; if(Object.hasOwn(out,key)) throw new Error(`Duplicate key: ${key}`);
+    const match = /^([A-Za-z_-]+):\s*(.*)$/.exec(lines[i]);
+    if(!match) { if(/^\s/.test(lines[i])) continue; throw new Error('Unsupported frontmatter syntax'); }
+    const [,key,raw] = match;
+    if(key!=='name' && key!=='description') { while(i+1<end && /^\s/.test(lines[i+1])) i++; continue; } if(Object.hasOwn(out,key)) throw new Error(`Duplicate key: ${key}`);
     let value=raw.trim();
     if(/^>[+-]?$/.test(value)) {
       const parts=[]; while(i+1<end && (/^\s/.test(lines[i+1]) || !lines[i+1])) parts.push(lines[++i].trim());
@@ -24,7 +25,7 @@ export function parseFrontmatter(text) {
     else { if(/^[\[\]{}|&*!]/.test(value)) throw new Error('Only YAML scalar values are supported'); value=value.replace(/\s+#.*$/,'').trim(); }
     if(typeof value !== 'string' || !value) throw new Error('Expected nonempty scalar'); out[key]=value;
   }
-  if(Object.keys(out).sort().join(',') !== 'description,name') throw new Error('Frontmatter keys must be exactly name and description');
+  if(Object.keys(out).sort().join(',') !== 'description,name') throw new Error('Frontmatter requires name and description');
   return out;
 }
 export function validateMetadata(meta, providerIds) {
