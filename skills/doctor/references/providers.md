@@ -32,7 +32,7 @@ all returned exit 0. Versions below are observations, not compatibility constrai
 | agy | `agy --help` | observed; no advertised version flag; recipe unverified | No confirmed public installer; ask the tool owner |
 | gemini | `gemini --version` | 0.42.0 | [Publisher README](https://github.com/google-gemini/gemini-cli) |
 | opencode | `opencode --version` | 1.16.2 | [Install](https://opencode.ai/docs/) |
-| mnemosyne | `mnemosyne --help` | help observed; chair reports 3.15.1; no advertised version flag; recipe unverified | No confirmed installer for this local memory CLI; do not substitute similarly named packages |
+| mnemosyne | `mnemosyne --help` | help observed; mnemosyne-memory 3.15.1 exercised by relay tests | `uv tool install --python 3.12 mnemosyne-memory` (relay verified recipe) |
 | osv-scanner | `osv-scanner --version` | 2.7.0 | [Installation](https://google.github.io/osv-scanner/installation/) |
 | semgrep | `semgrep --version` | not installed; flag unverified | [Homebrew recipe](https://formulae.brew.sh/formula/semgrep) |
 | gh | `gh --version` | 2.92.0 | [GitHub CLI installation](https://cli.github.com/) |

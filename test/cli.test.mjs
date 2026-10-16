@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, cp } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, cp, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -54,4 +54,57 @@ test('runner rejects inputs changed during successful check and refuses run reus
   const result=JSON.parse(await readFile(join(cwd,STATE_DIR,'runs/change/result.json'),'utf8'));assert.match(result.reason,/inputs changed/i);
   assert.equal(cli('skills/proof/scripts/run.mjs',['checks.json','--run-id','change'],cwd).status,2);
   assert.deepEqual(JSON.parse(await readFile(join(cwd,STATE_DIR,'runs/change/result.json'),'utf8')),result);
+});
+test('plugin-installed doctor hooks discover sibling relay outside project and user roots',async()=>{
+  const base=await realpath(await temp()),cwd=join(base,'project'),collection=join(base,'plugin cache','skills');await mkdir(cwd);
+  for(const name of ['doctor','relay'])await cp(join(repo,'skills',name),join(collection,name),{recursive:true});
+  const env={...process.env,RAMOS_PANE:'receiver',RAMOS_SKILL_ROOTS:'',MNEMOSYNE_DATA_DIR:join(base,'memory'),RAMOS_MNEMOSYNE_PYTHON:join(base,'missing-python')};
+  const doctor=join(collection,'doctor/scripts/doctor.mjs');
+  const installed=spawnSync(process.execPath,[doctor,'--install-hooks','claude'],{cwd,env,encoding:'utf8'});assert.equal(installed.status,0,installed.stderr);
+  const {checkpoint,offer,ack,workspaceOf}=await import('../skills/relay/scripts/relay.mjs');
+  const workspace=await workspaceOf({cwd,repoId:'fixture/plugin'}),opts={cwd,workspace,runId:'plugin',pane:'sender'};
+  const draft={task:{objective:'Resume plugin handoff',scope:'fixture',constraints:[],acceptance_refs:[]},work_state:'active',decisions:[],next_actions:[],blockers:[],unknowns:[],evidence:[]};
+  const checkpointFile=checkpoint(draft,opts);ack(offer(checkpointFile.path,{...opts,to:'receiver'}).path,{...opts,receiver:'receiver'});
+  const settings=JSON.parse(await readFile(join(cwd,'.claude/settings.local.json'),'utf8'));
+  const command=settings.hooks.SessionStart[0].hooks[0].command;
+  const legacy={...settings,hooks:{...settings.hooks,SessionStart:[{hooks:[{type:'command',command:command.replace(process.execPath,'/old/node').replace(/ SessionStart.*$/,' SessionStart'),timeout:10}]}]}};
+  await writeFile(join(cwd,'.claude/settings.local.json'),JSON.stringify(legacy));
+  const upgraded=spawnSync(process.execPath,[doctor,'--install-hooks','claude'],{cwd,env,encoding:'utf8'});assert.equal(upgraded.status,0,upgraded.stderr);
+  const upgradedSettings=JSON.parse(await readFile(join(cwd,'.claude/settings.local.json'),'utf8'));
+  assert.equal(upgradedSettings.hooks.SessionStart.length,1);
+  assert.equal(upgradedSettings.hooks.SessionStart[0].hooks[0].command,command);
+  const input=JSON.stringify({cwd,session_id:'plugin-session'});
+  const result=spawnSync(command,{cwd,env,input,encoding:'utf8',shell:true});assert.equal(result.status,0,result.stderr);
+  assert.match(JSON.parse(result.stdout).hookSpecificOutput?.additionalContext??'',/Resume plugin handoff/);
+  const direct=spawnSync(process.execPath,[join(collection,'doctor/scripts/_lib/hook-adapter.mjs'),'SessionStart'],{cwd,env,input,encoding:'utf8'});
+  assert.equal(direct.status,0,direct.stderr);assert.match(JSON.parse(direct.stdout).hookSpecificOutput?.additionalContext??'',/Resume plugin handoff/);
+});
+test('vendoring selects runtime consumers and leaves documentation-only skills untouched',async()=>{
+  const cwd=await temp();await cp(join(repo,'lib'),join(cwd,'lib'),{recursive:true});await mkdir(join(cwd,'scripts'));await cp(join(repo,'scripts/vendor.mjs'),join(cwd,'scripts/vendor.mjs'));
+  for(const name of ['static','dynamic','docs'])await mkdir(join(cwd,'skills',name,'scripts'),{recursive:true});
+  await writeFile(join(cwd,'skills/static/scripts/run.mjs'),"import { STATE_DIR } from './_lib/config.mjs';\n");
+  await writeFile(join(cwd,'skills/dynamic/scripts/run.mjs'),"await import('./_lib/config.mjs');\n");
+  await writeFile(join(cwd,'skills/docs/scripts/example.mjs'),'console.log("no shared library");\n');
+  const run=(args=[])=>spawnSync(process.execPath,[join(cwd,'scripts/vendor.mjs'),...args],{cwd,encoding:'utf8'});
+  const built=run();assert.equal(built.status,0,built.stderr);
+  await assert.rejects(readFile(join(cwd,'skills/docs/scripts/_lib/config.mjs')),{code:'ENOENT'});
+  for(const name of ['static','dynamic'])assert.equal(await readFile(join(cwd,'skills',name,'scripts/_lib/config.mjs'),'utf8'),await readFile(join(cwd,'lib/config.mjs'),'utf8'));
+  const checked=run(['--check']);assert.equal(checked.status,0,checked.stderr);
+  await mkdir(join(cwd,'skills/docs/scripts/_lib'));await writeFile(join(cwd,'skills/docs/scripts/_lib/config.mjs'),'obsolete');
+  assert.equal(run(['--check']).status,1);
+  assert.equal(run().status,0);await assert.rejects(readFile(join(cwd,'skills/docs/scripts/_lib/config.mjs')),{code:'ENOENT'});
+});
+test('Claude Code session environment arms proof and stdin session takes precedence',async()=>{
+  const cwd=await temp();await writeFile(join(cwd,'source'),'one');await writeFile(join(cwd,'checks.json'),JSON.stringify({checks:[{id:'unit',argv:[process.execPath,'-e','console.log("ok")']}],required_checks:['unit']}));
+  const env={...process.env,CLAUDE_CODE_SESSION_ID:'claude-current',CLAUDE_SESSION_ID:'legacy'};delete env.RAMOS_SESSION_ID;
+  const run=cli('skills/proof/scripts/run.mjs',['checks.json','--run-id','session'],cwd,{env});assert.equal(run.status,0,run.stderr);
+  const check=cli('skills/proof/scripts/check.mjs',[],cwd,{env});assert.equal(check.status,0,check.stderr);
+  await writeFile(join(cwd,'source'),'two');
+  const hook=(session_id)=>JSON.parse(cli('hooks/claude/stop.mjs',[],cwd,{env,input:JSON.stringify({cwd,session_id})}).stdout);
+  assert.equal(hook('claude-current').decision,'block');assert.deepEqual(hook('other'),{});
+});
+test('advisory errors stay silent and record a local hook diagnostic',async()=>{
+  const cwd=await temp(),root=join(cwd,'bad-skills');await writeFile(root,'not a directory');
+  const result=cli('hooks/claude/user-prompt-submit.mjs',[],cwd,{env:{...process.env,RAMOS_SKILL_ROOTS:root},input:JSON.stringify({cwd,prompt:'verify tests'})});assert.equal(result.status,0,result.stderr);assert.deepEqual(JSON.parse(result.stdout),{});
+  assert.match(await readFile(join(cwd,STATE_DIR,'hooks.log'),'utf8'),/UserPromptSubmit.*ENOTDIR/);
 });

@@ -9,6 +9,7 @@ import { parseFrontmatter, discoverSkills, validateMetadata } from '../lib/skill
 import { writeResult, validateResult, setActiveRun } from '../lib/result.mjs';
 import { route, nudge } from '../lib/router.mjs';
 import { stop } from '../lib/claude.mjs';
+import { fileSHA256 } from '../lib/files.mjs';
 import { STATE_DIR } from '../lib/config.mjs';
 
 const temp = () => mkdtemp(join(tmpdir(), 'ramos-test-'));
@@ -23,7 +24,7 @@ async function skill(root, name='proof', meta=metadata) {
 async function evidence(cwd) {
   await mkdir(join(cwd,STATE_DIR,'runs','run1','checks'),{recursive:true});
   await writeFile(join(cwd,STATE_DIR,'runs','run1','checks','unit.log'),'ok');
-  return {schema_version:1,run_id:'run1',skill:'proof',branch:'assertion',status:'passed',source:await inputDigest(cwd),checks:[{id:'unit',argv:[process.execPath,'--version'],cwd:'.',exit:0,started_at:'2026-01-01T00:00:00Z',ended_at:'2026-01-01T00:00:01Z',log:'checks/unit.log'}],required_checks:['unit'],artifacts:[],reason:null};
+  return {schema_version:1,run_id:'run1',skill:'proof',branch:'assertion',status:'passed',source:await inputDigest(cwd),checks:[{id:'unit',argv:[process.execPath,'--version'],cwd:'.',exit:0,started_at:'2026-01-01T00:00:00Z',ended_at:'2026-01-01T00:00:01Z',log:'checks/unit.log',log_sha256:await fileSHA256(join(cwd,STATE_DIR,'runs/run1/checks/unit.log'))}],required_checks:['unit'],artifacts:[],reason:null};
 }
 
 test('non-git digest changes with content and deletion, excludes runtime output', async()=>{
@@ -91,4 +92,42 @@ test('SessionStart warns about stale discovery without requiring relay',async()=
   const cwd=await temp(),root=join(cwd,'skills');const dir=await skill(root);await discoverSkills({cwd,roots:[root]});
   await writeFile(join(dir,'SKILL.md'),'---\nname: proof\ndescription: Use when newly changed.\n---\n');
   const out=await handleHook('SessionStart',{cwd,session_id:'test'},{roots:[root]});assert.match(out.hookSpecificOutput.additionalContext,/doctor:.*stale/i);
+});
+async function gitFixture() {
+  const cwd=await temp();git(cwd,'init');git(cwd,'config','user.email','test@example.com');git(cwd,'config','user.name','Test');await writeFile(join(cwd,'source'),'one');git(cwd,'add','.');git(cwd,'commit','-m','fixture');return cwd;
+}
+test('symlinked cwd excludes state and digest leaves git index untouched',async()=>{
+  const {symlink,stat,utimes}=await import('node:fs/promises');const cwd=await gitFixture(),parent=await temp(),alias=join(parent,'alias');await symlink(cwd,alias,'junction');
+  const before=await inputDigest(alias);await mkdir(join(cwd,STATE_DIR));await writeFile(join(cwd,STATE_DIR,'result'),'noise');assert.deepEqual(await inputDigest(alias),before);
+  const index=await stat(join(cwd,'.git/index'));await utimes(join(cwd,'source'),new Date(0),new Date(0));await inputDigest(alias);assert.equal((await stat(join(cwd,'.git/index'))).mtimeMs,index.mtimeMs);
+});
+test('nested repositories and dirty submodules are digestible and content-sensitive',async()=>{
+  const {cp}=await import('node:fs/promises');const cwd=await gitFixture(),nested=join(cwd,'nested'),origin=await gitFixture();await cp(origin,nested,{recursive:true});
+  const before=await inputDigest(cwd);await writeFile(join(nested,'source'),'two');const dirty=await inputDigest(cwd);assert.notEqual(dirty.input_digest,before.input_digest);
+  await writeFile(join(nested,'source'),'three');assert.notEqual((await inputDigest(cwd)).input_digest,dirty.input_digest);
+  git(cwd,'-c','protocol.file.allow=always','submodule','add',origin,'sub');git(cwd,'commit','-am','submodule');await writeFile(join(cwd,'sub/source'),'dirty');assert.equal((await inputDigest(cwd)).dirty,true);
+});
+test('verbose checks stream full logs and log tampering invalidates evidence',async()=>{
+  const {runChecks}=await import('../lib/proof.mjs');const cwd=await temp();
+  const result=await runChecks({checks:[{id:'verbose',argv:[process.execPath,'-e','process.stdout.write("x".repeat(2*1024*1024))']}],required_checks:['verbose']},{cwd,runId:'verbose'});
+  assert.equal(result.status,'passed',result.reason);const log=join(cwd,STATE_DIR,'runs/verbose/checks/verbose.log');assert.equal((await readFile(log)).length,2*1024*1024);
+  assert.equal((await validateResult(cwd,result)).ok,true);await writeFile(log,'tampered');assert.equal((await validateResult(cwd,result)).ok,false);
+});
+test('package proof state is visible to root Stop and vice versa',async()=>{
+  const {runChecks}=await import('../lib/proof.mjs');const cwd=await gitFixture(),pkg=join(cwd,'pkg');await mkdir(pkg);
+  const result=await runChecks({checks:[{id:'unit',argv:[process.execPath,'-e','console.log("ok")']}],required_checks:['unit']},{cwd:pkg,runId:'package',sessionId:'package-session'});assert.equal(result.status,'passed',result.reason);
+  assert.deepEqual(await stop({cwd,session_id:'package-session'}),{});await writeFile(join(cwd,'source'),'two');assert.equal((await stop({cwd,session_id:'package-session'})).decision,'block');assert.equal((await stop({cwd:pkg,session_id:'package-session'})).decision,'block');
+});
+test('nudges require two signals, ignore explicit commands, and tolerate paths',async()=>{
+  const cwd=await temp(),root=join(cwd,'skills');await skill(root);const skills=await discoverSkills({cwd,roots:[root]});
+  assert.equal(nudge('done for today',skills),'');assert.equal(nudge('/proof',skills),'');assert.equal(nudge('tests',skills),'');assert.match(nudge('verify tests in /usr/local/app',skills),/consider \/proof/);
+});
+test('duplicate skill routes accept an explicit installed path',async()=>{
+  const cwd=await temp(),first=join(cwd,'first'),second=join(cwd,'second');await skill(first);const selected=await skill(second);
+  const skills=await discoverSkills({cwd,roots:[first,second]});assert.equal((await route('verify tests',{cwd,skills})).status,'ambiguous');
+  const result=await route('verify tests',{cwd,skills,skill:join(selected,'SKILL.md'),probeFn:async()=>[]});assert.equal(result.status,'ready');assert.equal(result.selected.path,await (await import('node:fs/promises')).realpath(join(selected,'SKILL.md')));
+});
+test('SessionStart never executes an undeclared third-party relay',async()=>{
+  const {handleHook}=await import('../lib/hook-adapter.mjs');const cwd=await temp(),root=join(cwd,'skills'),dir=await skill(root,'relay',null);await mkdir(join(dir,'scripts'));await writeFile(join(dir,'scripts/relay.mjs'),'console.log("THIRD PARTY EXECUTED")');
+  assert.deepEqual(await handleHook('SessionStart',{cwd},{roots:[root]}),{});
 });

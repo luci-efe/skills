@@ -21,3 +21,5 @@ description: Use when choosing the next engineering skill, discovering installed
 `node scripts/compass.mjs nudge "<prompt>"` emits at most one advisory line; it never probes or calls a model.
 
 Done: a receipt identifies one selected skill/branch, reason, entrypoint, fresh prerequisite results and expected artifact schema, or explicitly records no match/ambiguity/blocker. Routing alone is not task completion.
+
+If duplicate names are reported → pass `route "prompt" --skill /absolute/path/to/SKILL.md` (the installed path is the identifier). Nudges require two distinct intent signals and stay silent for an explicit skill command.

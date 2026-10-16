@@ -154,7 +154,9 @@
       "mnemosyne",
       "--help"
     ],
-    "install": {},
+    "install": {
+      "any": "uv tool install --python 3.12 mnemosyne-memory"
+    },
     "docs": null,
     "verified": false,
     "version": false
