@@ -86,3 +86,14 @@ test('seat names are validated and runs are never overwritten', () => {
   init({ ...o, artifact: join(o.cwd, 'plan.md'), seats: ['claude', 'codex'], runId: 'fixed' })
   assert.throws(() => init({ ...o, artifact: join(o.cwd, 'plan.md'), seats: ['claude', 'codex'], runId: 'fixed' }), /already exists/)
 })
+
+test('concurrent missing calls do not lose updates', async () => {
+  const o = setup()
+  const seats = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6']
+  const r = init({ ...o, artifact: join(o.cwd, 'plan.md'), seats })
+  const { spawn } = await import('node:child_process')
+  const { fileURLToPath } = await import('node:url')
+  const cli = fileURLToPath(new URL('../skills/council/scripts/council.mjs', import.meta.url))
+  await Promise.all(seats.map((s) => new Promise((res) => spawn(process.execPath, [cli, 'missing', '--dir', r.dir, '--round', '1', '--seat', s, '--reason', 'down']).on('close', res))))
+  assert.equal(Object.keys(JSON.parse(readFileSync(join(r.dir, 'council.json'), 'utf8')).missing).length, 6)
+})

@@ -37,3 +37,7 @@ test('RAMOS_MNEMOSYNE_PYTHON overrides discovery and is validated', { skip: !ava
   assert.equal(available({ env: { ...env, RAMOS_MNEMOSYNE_PYTHON: py } }).python, py)
   assert.equal(available({ env: { ...env, RAMOS_MNEMOSYNE_PYTHON: '/nonexistent/python' } }).ok, false)
 })
+
+test('the not-found error mentions the interpreter override', () => {
+  assert.throws(() => recall({ bank: 'ramos-x', query: 'two words' }, { env: { ...env, PATH: '/nonexistent' } }), /RAMOS_MNEMOSYNE_PYTHON/)
+})

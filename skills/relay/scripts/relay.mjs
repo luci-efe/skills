@@ -4,6 +4,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { existsSync, linkSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { execFileSync } from 'node:child_process'
 import { STATE_DIR } from './_lib/config.mjs'
 import { bankName, recall, remember } from './memory.mjs'
 
@@ -79,12 +80,15 @@ export const validate = (cp) => {
 }
 
 const lane = (o, runId, pane) => join(stateDirOf(o), 'runs', name('run id', runId), name('pane', pane), 'checkpoints')
+const latestIn = (dir) => Math.max(0, ...seqsIn(dir).filter((n) => existsSync(join(dir, String(n), 'handoff.json'))))
 const seqsIn = (dir) => (existsSync(dir) ? readdirSync(dir).filter((n) => /^\d+$/.test(n)).map(Number) : [])
 
 export const workspaceOf = async (o) => {
   const { inputDigest } = await import('./_lib/digest.mjs')
   const d = await inputDigest(o.cwd ?? process.cwd())
-  return { repo_id: o.repoId ?? 'local', branch: null, head: d.head, input_digest: d.input_digest }
+  let branch = null
+  try { branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: o.cwd ?? process.cwd(), encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null } catch {}
+  return { repo_id: o.repoId ?? 'local', branch, head: d.head, input_digest: d.input_digest }
 }
 
 export const render = (cp, digest) => {
@@ -160,9 +164,10 @@ export const checkpoint = (draftIn, o) => {
 export const offer = (cpPath, o) => {
   name('receiver', o.to)
   const cp = readJson(cpPath)
+  if (cp.sequence !== latestIn(dirname(dirname(resolve(cpPath))))) throw new Error(`checkpoint #${cp.sequence} is not the latest checkpoint in its lane; offer the latest one`)
   const transfer_id = randomUUID()
   const body = Object.fromEntries(DRAFT_KEYS.filter((k) => k in cp).map((k) => [k, cp[k]]))
-  const offered = publish(body, { ...o, runId: cp.run_id, pane: cp.pane, workspace: o.workspace ?? cp.workspace }, { owner: cp.pane, intended_receiver: o.to, transfer_id, phase: 'offered' })
+  const offered = publish(body, { ...o, runId: cp.run_id, pane: cp.pane, workspace: o.workspace ? { ...o.workspace, repo_id: cp.workspace.repo_id } : cp.workspace }, { owner: cp.pane, intended_receiver: o.to, transfer_id, phase: 'offered' })
   const path = join(offered.dir, 'offer.json')
   writeFile(path, `${JSON.stringify({ transfer_id, checkpoint: posix(relative(stateDirOf(o), offered.path)), checkpoint_sha256: offered.sha256, to: o.to, at: new Date().toISOString() }, null, 2)}\n`)
   return { path, transfer_id, checkpoint: offered.path }
@@ -175,6 +180,9 @@ export const ack = (offerPath, o) => {
   if (off.to !== o.receiver) throw new Error(`transfer is intended for ${off.to}, not ${o.receiver}`)
   if (sha(readFileSync(cpPath)) !== off.checkpoint_sha256) throw new Error('checkpoint digest mismatch: the offered checkpoint changed after the offer')
   const cp = readJson(cpPath)
+  const own = cp.ownership ?? {}
+  if (own.phase !== 'offered' || own.transfer_id !== off.transfer_id || own.intended_receiver !== off.to) throw new Error('offer does not match its checkpoint (phase, transfer_id or receiver differ)')
+  if (cp.sequence !== latestIn(dirname(dirname(cpPath)))) throw new Error(`offer ${off.transfer_id} was superseded by a newer checkpoint in this lane`)
   const stale = o.workspace ? o.workspace.head !== cp.workspace.head || o.workspace.input_digest !== cp.workspace.input_digest : null
   const ackPath = join(dirname(offerPath), 'ack.json')
   const record = { transfer_id: off.transfer_id, checkpoint_sha256: off.checkpoint_sha256, receiver: o.receiver, stale, stale_reason: o.workspace ? null : (o.workspaceError ?? 'workspace unavailable'), at: new Date().toISOString() }
@@ -221,7 +229,7 @@ export const inject = (o) => {
       memory.push(`memory: unavailable (${err.message.slice(0, 80)})`)
     }
   }
-  const fixed = [header, next, readLine].map((l) => clip(l, 400))
+  const fixed = [clip(header, 400), clip(next, 400), readLine]
   const used = fixed.reduce((n, l) => n + Buffer.byteLength(l) + 1, 0)
   const objective = clip(`objective: ${cp.task.objective}`, Math.max(40, INJECT_BYTES - used - 1))
   const lines = [fixed[0], objective, fixed[1]]

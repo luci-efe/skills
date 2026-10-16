@@ -46,6 +46,16 @@ const python = (env) => {
       if (/python/i.test(py) && imports(py, env)) return py
     }
   } catch {}
+  const win = process.platform === 'win32'
+  const venvPy = (root) => join(root, win ? 'Scripts' : 'bin', win ? 'python.exe' : 'python')
+  const candidates = []
+  try {
+    const uvDir = spawnSync('uv', ['tool', 'dir'], { env, encoding: 'utf8', timeout: 10_000 })
+    if (uvDir.status === 0) candidates.push(venvPy(join(uvDir.stdout.trim(), 'mnemosyne-memory')))
+  } catch {}
+  const home = env.HOME ?? env.USERPROFILE ?? ''
+  candidates.push(venvPy(join(env.PIPX_HOME ?? join(home, '.local', 'pipx'), 'venvs', 'mnemosyne-memory')))
+  for (const py of candidates) if (existsSync(py) && imports(py, env)) return py
   for (const py of ['python3', 'python', 'py']) if (which(py, env) && imports(py, env)) return py
   return null
 }
@@ -63,7 +73,7 @@ export const available = ({ env = process.env } = {}) => {
 const call = (req, { env = process.env } = {}) => {
   if (!req.bank) throw new Error('bank is required (mnemosyne ignores MNEMOSYNE_BANK in its Python API)')
   const a = available({ env })
-  if (!a.ok) throw new Error(`mnemosyne not found. Install: ${a.install}`)
+  if (!a.ok) throw new Error(`mnemosyne not found (or its Python interpreter could not be located; set RAMOS_MNEMOSYNE_PYTHON). Install: ${a.install}`)
   const r = spawnSync(a.python, ['-c', PY], { input: JSON.stringify(req), env, encoding: 'utf8', timeout: 30_000, maxBuffer: 4 << 20 })
   if (r.error) throw r.error
   if (r.status !== 0) throw new Error(`mnemosyne ${req.op} failed: ${(r.stderr || '').trim().split('\n').pop()}`)

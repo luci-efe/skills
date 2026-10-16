@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // /council run bookkeeping: an artifact under review, bounded rounds, per-seat files with completion markers.
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, rmdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { STATE_DIR } from './_lib/config.mjs'
@@ -52,7 +52,21 @@ export const init = (o) => {
   return { run_id, dir }
 }
 
-export const markMissing = ({ dir, round, seat, reason }) => {
+const withLock = (dir, fn) => {
+  const lock = join(dir, '.lock')
+  const until = Date.now() + 10_000
+  for (;;) {
+    try { mkdirSync(lock); break } catch (e) {
+      if (e.code !== 'EEXIST') throw e
+      if (Date.now() > until) throw new Error(`council run is locked (${lock}); remove it if no other council command is running`)
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20)
+    }
+  }
+  try { return fn() } finally { rmdirSync(lock) }
+}
+
+export const markMissing = (args) => withLock(args.dir, () => markMissingUnlocked(args))
+const markMissingUnlocked = ({ dir, round, seat, reason }) => {
   const p = join(dir, 'council.json')
   const run = JSON.parse(readFileSync(p, 'utf8'))
   if (!run.outputs[round]) throw new Error(`unknown round ${round}`)

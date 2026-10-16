@@ -191,3 +191,43 @@ test('sync stores accepted decisions once per checkpoint digest', { skip: !avail
   ack(offer(a.path, { ...o, to: 'codex', workspace: ws }).path, { ...o, receiver: 'codex', workspace: ws })
   assert.match(inject({ ...o, pane: 'codex', workspace: ws, memory: true }), /Never spawn a session inside Stop/)
 })
+
+test('offer keeps the repo id and cannot roll a lane back', () => {
+  const o = setup()
+  const a = checkpoint(draft(), { ...o, runId: 'r1', pane: 'chair', workspace: ws })
+  const b = checkpoint(draft(), { ...o, runId: 'r1', pane: 'chair', workspace: ws })
+  assert.throws(() => offer(a.path, { ...o, to: 'codex', workspace: { ...ws, repo_id: 'local' } }), /not the latest checkpoint/)
+  const off = offer(b.path, { ...o, to: 'codex', workspace: { ...ws, repo_id: 'local' } })
+  assert.equal(JSON.parse(readFileSync(off.checkpoint, 'utf8')).workspace.repo_id, 'luci-efe/skills')
+})
+
+test('a lane never ends up with two owners', () => {
+  const o = setup()
+  const a = checkpoint(draft(), { ...o, runId: 'r1', pane: 'chair', workspace: ws })
+  const toAlice = offer(a.path, { ...o, to: 'alice', workspace: ws })
+  assert.throws(() => offer(a.path, { ...o, to: 'bob', workspace: ws }), /not the latest checkpoint/)
+  const toBob = offer(toAlice.checkpoint, { ...o, to: 'bob', workspace: ws })
+  assert.throws(() => ack(toAlice.path, { ...o, receiver: 'alice', workspace: ws }), /superseded/)
+  ack(toBob.path, { ...o, receiver: 'bob', workspace: ws })
+  assert.equal(existsSync(join(o.stateDir, 'assigned', 'alice.json')), false)
+})
+
+test('ack rejects an offer whose checkpoint is not the matching offered checkpoint', () => {
+  const o = setup()
+  const a = checkpoint(draft(), { ...o, runId: 'r1', pane: 'chair', workspace: ws })
+  const off = offer(a.path, { ...o, to: 'codex', workspace: ws })
+  const forged = JSON.parse(readFileSync(off.path, 'utf8'))
+  forged.transfer_id = 'other'
+  writeFileSync(off.path, JSON.stringify(forged))
+  assert.throws(() => ack(off.path, { ...o, receiver: 'codex', workspace: ws }), /transfer_id/)
+})
+
+test('the read pointer is never clipped', () => {
+  const o = setup()
+  const deep = join(o.cwd, 'x'.repeat(120), 'y'.repeat(120), 'z'.repeat(120), '.ramos')
+  const a = checkpoint(draft(), { ...o, stateDir: deep, runId: 'r1', pane: 'chair', workspace: ws })
+  ack(offer(a.path, { ...o, stateDir: deep, to: 'codex', workspace: ws }).path, { ...o, stateDir: deep, receiver: 'codex', workspace: ws })
+  const out = inject({ ...o, stateDir: deep, pane: 'codex', workspace: ws, memory: false })
+  const last = out.split('\n').pop()
+  assert.ok(existsSync(last.split(' read ')[1]), last)
+})
