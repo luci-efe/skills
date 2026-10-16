@@ -8,9 +8,8 @@ import { available, bankName, remember, recall } from '../skills/relay/scripts/m
 const env = { ...process.env, MNEMOSYNE_DATA_DIR: mkdtempSync(join(tmpdir(), 'mnemo-')) }
 
 test('bankName sanitizes repo ids into a valid mnemosyne bank', () => {
-  assert.equal(bankName('luci-efe/skills'), 'ramos-luci-efe-skills')
-  assert.equal(bankName('a b/../c'), 'ramos-a-b-c')
-  assert.match(bankName('x'.repeat(200)), /^ramos-[A-Za-z0-9_-]{1,64}$/)
+  assert.match(bankName('a b/../c'), /^ramos-a-b-c-[0-9a-f]{12}$/)
+  assert.match(bankName('x'.repeat(200)), /^ramos-[A-Za-z0-9_-]{1,80}$/)
 })
 
 test('available reports install command when mnemosyne is missing', () => {
@@ -40,4 +39,10 @@ test('RAMOS_MNEMOSYNE_PYTHON overrides discovery and is validated', { skip: !ava
 
 test('the not-found error mentions the interpreter override', () => {
   assert.throws(() => recall({ bank: 'ramos-x', query: 'two words' }, { env: { ...env, PATH: '/nonexistent' } }), /RAMOS_MNEMOSYNE_PYTHON/)
+})
+
+test('bankName never maps two repo ids to the same bank', () => {
+  assert.notEqual(bankName('acme/a-b'), bankName('acme-a/b'))
+  assert.notEqual(bankName(`${'x'.repeat(70)}1`), bankName(`${'x'.repeat(70)}2`))
+  assert.match(bankName('luci-efe/skills'), /^ramos-luci-efe-skills-[0-9a-f]{12}$/)
 })

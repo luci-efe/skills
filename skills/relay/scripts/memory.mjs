@@ -1,6 +1,7 @@
 // mnemosyne adapter for /relay. Contract: ../references/mnemosyne.md
 // One Python process per call, bank always explicit (the Python API ignores MNEMOSYNE_BANK).
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 
@@ -61,8 +62,10 @@ const python = (env) => {
 }
 
 export const bankName = (repoId) => {
-  const slug = String(repoId).replace(/[^A-Za-z0-9_-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 64)
-  return `ramos-${slug || 'default'}`
+  // Readable prefix + digest of the full id: lossy slugs alone collide (acme/a-b vs acme-a/b).
+  const id = String(repoId)
+  const slug = id.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 48)
+  return `ramos-${slug || 'repo'}-${createHash('sha256').update(id).digest('hex').slice(0, 12)}`
 }
 
 export const available = ({ env = process.env } = {}) => {

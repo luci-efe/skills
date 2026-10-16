@@ -167,7 +167,7 @@ export const offer = (cpPath, o) => {
   if (cp.sequence !== latestIn(dirname(dirname(resolve(cpPath))))) throw new Error(`checkpoint #${cp.sequence} is not the latest checkpoint in its lane; offer the latest one`)
   const transfer_id = randomUUID()
   const body = Object.fromEntries(DRAFT_KEYS.filter((k) => k in cp).map((k) => [k, cp[k]]))
-  const offered = publish(body, { ...o, runId: cp.run_id, pane: cp.pane, workspace: o.workspace ? { ...o.workspace, repo_id: cp.workspace.repo_id } : cp.workspace }, { owner: cp.pane, intended_receiver: o.to, transfer_id, phase: 'offered' })
+  const offered = publish(body, { ...o, runId: cp.run_id, pane: cp.pane, workspace: cp.workspace }, { owner: cp.pane, intended_receiver: o.to, transfer_id, phase: 'offered' })
   const path = join(offered.dir, 'offer.json')
   writeFile(path, `${JSON.stringify({ transfer_id, checkpoint: posix(relative(stateDirOf(o), offered.path)), checkpoint_sha256: offered.sha256, to: o.to, at: new Date().toISOString() }, null, 2)}\n`)
   return { path, transfer_id, checkpoint: offered.path }
@@ -245,8 +245,8 @@ export const inject = (o) => {
 export const read = (cpPath) => {
   const body = readFileSync(cpPath)
   const md = readFileSync(join(dirname(cpPath), 'HANDOFF.md'), 'utf8')
-  const m = md.match(/sha256 ([0-9a-f]{64})/)
-  return { ok: Boolean(m && m[1] === sha(body)), markdown: md }
+  const expected = render(JSON.parse(body), sha(body))
+  return { ok: md === expected, markdown: expected }
 }
 
 export const sync = (cpPath, o) => {

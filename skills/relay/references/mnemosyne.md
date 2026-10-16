@@ -40,7 +40,7 @@ recall(query, top_k=5, *, from_date=None, to_date=None, source=None, topic=None,
 ## Verified gotchas, and the rules /relay follows
 1. **Always pass `bank=` explicitly.** `MNEMOSYNE_BANK` is honored by the CLI but **ignored by the Python API**.
 2. **One process per call.** Within one process, a `recall()` without `bank=` after a banked call returned the banked memory. Across processes, `bank=` isolates correctly (bank-a: 1 hit, bank-b: 0).
-3. Bank names must match `[A-Za-z0-9_-]+`, otherwise `ValueError`. A bank is auto-created on first `remember`. /relay uses `ramos-<repo_id>`, sanitized.
+3. Bank names must match `[A-Za-z0-9_-]+`, otherwise `ValueError`. A bank is auto-created on first `remember`. /relay uses `ramos-<slug>-<12 hex of sha256(repo_id)>`, so distinct repos never share a bank.
 4. Single-character queries returned 0 hits. Queries should be ≥2 meaningful words.
 5. `sleep` consolidates only *old* working memories. Running it immediately after `store` returns `no_op`, which is fine.
 

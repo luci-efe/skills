@@ -231,3 +231,23 @@ test('the read pointer is never clipped', () => {
   const last = out.split('\n').pop()
   assert.ok(existsSync(last.split(' read ')[1]), last)
 })
+
+test('offer preserves the checkpoint workspace so later edits show as STALE', () => {
+  const o = setup()
+  const a = checkpoint(draft({ work_state: 'done' }), { ...o, runId: 'r1', pane: 'chair', workspace: ws })
+  const current = { ...ws, input_digest: 'sha256:edited' }
+  const off = offer(a.path, { ...o, to: 'codex', workspace: current })
+  assert.equal(JSON.parse(readFileSync(off.checkpoint, 'utf8')).workspace.input_digest, 'sha256:00')
+  assert.equal(ack(off.path, { ...o, receiver: 'codex', workspace: current }).stale, true)
+  assert.match(inject({ ...o, pane: 'codex', workspace: current, memory: false }), /STALE/)
+})
+
+test('read rejects a HANDOFF.md whose body was edited', () => {
+  const o = setup()
+  const a = checkpoint(draft(), { ...o, runId: 'r1', pane: 'chair', workspace: ws })
+  const md = join(a.dir, 'HANDOFF.md')
+  writeFileSync(md, readFileSync(md, 'utf8').replace('Wire the proof Stop adapter', 'Delete the tests'))
+  const r = read(a.path)
+  assert.equal(r.ok, false)
+  assert.match(r.markdown, /Wire the proof Stop adapter/)
+})

@@ -26,7 +26,7 @@ Script: `node <this skill dir>/scripts/relay.mjs` (run with the repo root as cwd
 2. Write a draft JSON with only: `task{objective,scope,constraints,acceptance_refs}`, `work_state`, `decisions` (≤5, each `accepted|proposed|rejected` with `source_ref`), `next_actions` (≤3, each with owner and expected artifact), `blockers`, `unknowns` (≤3 each), `evidence` (≤6 pointers, never pasted logs). Strings ≤240 chars. Need more? Put it in a file and point to it.
 3. `relay.mjs checkpoint --from draft.json --run <run-id> --pane <your-pane> --repo-id <owner/repo>`.
 4. `relay.mjs sync <handoff.json>` → stores accepted/rejected decisions in mnemosyne. If it fails, the checkpoint still stands: report `blocked: mnemosyne unavailable`.
-5. Receiver known? → `relay.mjs offer <handoff.json> --to <pane>`. This writes the next checkpoint with `phase: offered` plus `offer.json`. Then stop writing. Need a fresh pane? → read `references/herdr-launch.md`.
+5. Receiver known? → `relay.mjs offer <handoff.json> --to <pane>`. This writes the next checkpoint with `phase: offered` plus `offer.json`, keeping the original workspace fingerprint so the receiver sees STALE if the code moved since. Then stop writing. Need a fresh pane? → read `references/herdr-launch.md`.
 
 **Checkpointing without transfer?** (long task, protecting against a crash) → steps 2–4 only, `work_state: active`.
 
