@@ -16,7 +16,7 @@ docs/                         # contracts, provider catalog
 Skills: `doctor compass cartographer crucible council reproduce proof red-team relay` (9).
 
 ## 2. Constants
-`lib/config.mjs` exports `STATE_DIR = process.env.RAMOS_STATE_DIR ?? '.ramos'`. No other file may hardcode `.ramos`.
+`lib/config.mjs` exports `STATE_DIR = process.env.RAMOS_STATE_DIR ?? '.ramos'` and `stateDirectory(cwd)`. State is anchored at the git toplevel, else at the nearest ancestor that already has the state dir, else at cwd, and realpath-canonicalized. Every script resolves state via `stateDirectory()`. No other file may hardcode `.ramos`.
 
 ## 3. `skill.json` schema (v1)
 ```json
@@ -38,10 +38,10 @@ Skills: `doctor compass cartographer crucible council reproduce proof red-team r
 { "schema_version":1, "run_id":"…", "skill":"proof", "branch":"assertion",
   "status":"passed|failed|blocked|cancelled",
   "source": { "head":"<sha|null>", "input_digest":"sha256:…", "dirty":true },
-  "checks":[{ "id":"unit", "argv":["npm","test"], "cwd":".", "exit":0, "started_at":"…", "ended_at":"…", "log":"checks/unit.log" }],
+  "checks":[{ "id":"unit", "argv":["npm","test"], "cwd":".", "exit":0, "started_at":"…", "ended_at":"…", "log":"checks/unit.log", "log_sha256":"…" }],
   "required_checks":["unit"], "artifacts":["…"], "reason":null }
 ```
-`input_digest` = sha256 over sorted (path, content-sha256) of tracked-modified + untracked non-ignored files, plus HEAD. It is recomputed at validation time, and a mismatch means the evidence is stale.
+`input_digest` = sha256 over sorted (path, content-sha256, kind) of tracked-modified + untracked non-ignored files, plus HEAD. Submodules and nested repos contribute their HEAD plus a recursive dirty digest. All git reads use `--no-optional-locks`. It is recomputed at validation, and a mismatch or a changed `log_sha256` means the evidence is stale. **Limitation:** a hand-written passing record can satisfy the local gate. Only CI re-execution plus independent review earns "verified".
 
 ## 5. Handoff checkpoint: `STATE_DIR/runs/<run-id>/<pane>/checkpoints/<seq>/handoff.json`
 Fields: `schema_version, run_id, pane, sequence, created_at, parent_checkpoint{path,sha256}|null, task{objective,scope,constraints[],acceptance_refs[]}, workspace{repo_id,branch,head,input_digest}, ownership{owner,intended_receiver,transfer_id,phase:"working|offered"}, work_state:"active|done|blocked|failed|cancelled", decisions[≤5]{id,summary,source_ref,status}, next_actions[≤3]{owner,action,artifact}, blockers[≤3], unknowns[≤3], evidence[≤6]{kind,path,digest,outcome}, memory_refs[≤5]`.
@@ -55,7 +55,7 @@ SessionStart injection ≤ 400 tokens (≤1600 bytes): status, STALE flag, objec
 - Other harnesses: the same scripts run as manual gates (`node skills/proof/scripts/check.mjs`).
 
 ## 7. Packaging
-`npx skills add luci-efe/skills` copies each `skills/<name>/` independently, so a skill must not import from `../../lib`. `npm run build:vendor` copies `lib/*.mjs` into `skills/<name>/scripts/_lib/`. CI fails if the vendored copies drift (`npm run check:vendor`).
+`npx skills add luci-efe/skills` copies each `skills/<name>/` independently, so a skill must not import from `../../lib`. `npm run build:vendor` copies `lib/*` into `skills/<name>/scripts/_lib/` **only for skills whose scripts import `./_lib/`**, and removes stale copies elsewhere. CI fails if the vendored copies drift (`npm run check:vendor`).
 
 ## 8. Quality bar for every seat
 - RED → GREEN: a failing `node --test` before implementation. `npm test` must be green before claiming done.

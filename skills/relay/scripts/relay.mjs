@@ -5,7 +5,7 @@ import { existsSync, linkSync, mkdirSync, readFileSync, readdirSync, renameSync,
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
-import { STATE_DIR } from './_lib/config.mjs'
+import { stateDirectory } from './_lib/config.mjs'
 import { bankName, recall, remember } from './memory.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -20,7 +20,7 @@ const INJECT_BYTES = 1600
 
 const sha = (s) => createHash('sha256').update(s).digest('hex')
 const posix = (p) => p.split(sep).join('/')
-const stateDirOf = (o) => o.stateDir ?? resolve(o.cwd ?? process.cwd(), STATE_DIR)
+const stateDirOf = (o) => o.stateDir ?? stateDirectory(o.cwd ?? process.cwd())
 const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'))
 const name = (kind, v) => { if (typeof v !== 'string' || !NAME.test(v)) throw new Error(`invalid ${kind} ${JSON.stringify(v)}: use letters, digits, - and _`); return v }
 

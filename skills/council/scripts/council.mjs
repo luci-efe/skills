@@ -4,10 +4,10 @@ import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, rmdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { STATE_DIR } from './_lib/config.mjs'
+import { stateDirectory } from './_lib/config.mjs'
 
 const MAX_ROUNDS = 2
-const stateDirOf = (o) => o.stateDir ?? resolve(o.cwd ?? process.cwd(), STATE_DIR)
+const stateDirOf = (o) => o.stateDir ?? stateDirectory(o.cwd ?? process.cwd())
 const SEAT = /^[a-z0-9][a-z0-9-]{0,31}$/
 const MIN_REVIEWS = 2
 const saveRun = (dir, run) => { const p = join(dir, 'council.json'); const tmp = `${p}.${process.pid}.tmp`; writeFileSync(tmp, `${JSON.stringify(run, null, 2)}\n`); renameSync(tmp, p) }

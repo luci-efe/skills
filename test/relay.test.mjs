@@ -251,3 +251,14 @@ test('read rejects a HANDOFF.md whose body was edited', () => {
   assert.equal(r.ok, false)
   assert.match(r.markdown, /Wire the proof Stop adapter/)
 })
+
+test('relay state anchors at the git root, so a subdirectory shares it', () => {
+  const o = setup()
+  spawnSync('git', ['init', '-q'], { cwd: o.cwd })
+  mkdirSync(join(o.cwd, 'pkg'))
+  const env = { ...process.env }; delete env.RAMOS_STATE_DIR
+  writeFileSync(join(o.cwd, 'd.json'), JSON.stringify(draft()))
+  const r = spawnSync(process.execPath, [RELAY, 'checkpoint', '--from', '../d.json', '--run', 'r1', '--pane', 'chair'], { cwd: join(o.cwd, 'pkg'), env, encoding: 'utf8' })
+  assert.equal(r.status, 0, r.stderr)
+  assert.ok(existsSync(join(o.cwd, '.ramos', 'runs', 'r1', 'chair', 'checkpoints', '1', 'handoff.json')))
+})
