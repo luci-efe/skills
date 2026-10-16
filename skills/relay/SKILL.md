@@ -7,10 +7,10 @@ description: Use when a session must hand work to a fresh session, another agent
 
 A handoff is a transfer of ownership, not a summary. The JSON checkpoint is the source of truth; `HANDOFF.md` is generated from it; lasting decisions go to mnemosyne.
 
-Script: `node <this skill dir>/scripts/relay.mjs` (run with the repo root as cwd; `<this skill dir>` is where this SKILL.md is installed, e.g. `.claude/skills/relay`). State lives under `.ramos/runs/<run>/<pane>/checkpoints/<n>/`.
+Script: `node <this skill dir>/scripts/relay.mjs` (run with the repo root as cwd; `<this skill dir>` is where this SKILL.md is installed, e.g. `.claude/skills/relay`). State lives under `<state dir>/runs/<run>/<pane>/checkpoints/<n>/`, where the state dir is `.ramos/` unless `RAMOS_STATE_DIR` is set. Set `RAMOS_PANE=<your-pane>` so the SessionStart hook can find your assignment.
 
 ## Preflight (hard)
-- `mnemosyne` on PATH? If not → stop, print `uv tool install --python 3.12 mnemosyne-memory`, report `blocked`. Do not hand off without it.
+- `mnemosyne` must be on PATH for a **transfer**. If it's missing → still write the checkpoint (steps 2–3 below, so recovery state is never lost), print `uv tool install --python 3.12 mnemosyne-memory`, report `blocked`, and don't offer.
 - Never write to another pane's checkpoint directory.
 
 ## Decision tree
@@ -26,7 +26,7 @@ Script: `node <this skill dir>/scripts/relay.mjs` (run with the repo root as cwd
 2. Write a draft JSON with only: `task{objective,scope,constraints,acceptance_refs}`, `work_state`, `decisions` (≤5, each `accepted|proposed|rejected` with `source_ref`), `next_actions` (≤3, each with owner and expected artifact), `blockers`, `unknowns` (≤3 each), `evidence` (≤6 pointers, never pasted logs). Strings ≤240 chars. Need more? Put it in a file and point to it.
 3. `relay.mjs checkpoint --from draft.json --run <run-id> --pane <your-pane> --repo-id <owner/repo>`.
 4. `relay.mjs sync <handoff.json>` → stores accepted/rejected decisions in mnemosyne. If it fails, the checkpoint still stands: report `blocked: mnemosyne unavailable`.
-5. Receiver known? → `relay.mjs offer <handoff.json> --to <pane>`. Then stop writing. Need a fresh pane? → read `references/herdr-launch.md`.
+5. Receiver known? → `relay.mjs offer <handoff.json> --to <pane>`. This writes the next checkpoint with `phase: offered` plus `offer.json`. Then stop writing. Need a fresh pane? → read `references/herdr-launch.md`.
 
 **Checkpointing without transfer?** (long task, protecting against a crash) → steps 2–4 only, `work_state: active`.
 

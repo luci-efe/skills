@@ -8,7 +8,7 @@ description: Use when a feature, refactor, or design is underspecified or has co
 Read first, ask last. The human answers only what the code can't.
 
 ## Step 1: Read (no questions yet)
-Inspect the code the change touches: entry points, data models, tests, and existing helpers. Write down what you learned as facts with `path:line`.
+Write what the code already decides as facts with `path:line`. Every later question must be one these facts couldn't answer.
 
 ## Step 2: The ladder (before proposing anything new)
 For each piece of the requested change, stop at the first "yes":

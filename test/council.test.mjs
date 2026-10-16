@@ -50,3 +50,39 @@ test('a failed seat can be recorded so the run can still terminate', () => {
   assert.equal(s.rounds['1'].codex, 'missing: rate limited until 18:00')
   assert.equal(s.round_closed['1'], true)
 })
+
+test('a round with fewer than 2 completed reviews is never complete', () => {
+  const o = setup()
+  const r = init({ ...o, artifact: join(o.cwd, 'plan.md'), seats: ['claude', 'codex'] })
+  for (const round of ['1', '2']) for (const seat of ['claude', 'codex']) markMissing({ dir: r.dir, round, seat, reason: 'down' })
+  writeFileSync(join(r.dir, 'SYNTHESIS.md'), '# s')
+  const s = status({ dir: r.dir })
+  assert.equal(s.complete, false)
+  assert.match(s.problems.join(' '), /fewer than 2 completed reviews/)
+})
+
+test('missing requires a non-empty reason and a known round and seat', () => {
+  const o = setup()
+  const r = init({ ...o, artifact: join(o.cwd, 'plan.md'), seats: ['claude', 'codex'] })
+  assert.throws(() => markMissing({ dir: r.dir, round: '1', seat: 'codex', reason: '' }), /reason/)
+  assert.throws(() => markMissing({ dir: r.dir, round: '1', seat: 'nobody', reason: 'x' }), /unknown seat/)
+  assert.throws(() => markMissing({ dir: r.dir, round: '9', seat: 'codex', reason: 'x' }), /unknown round/)
+})
+
+test('the marker only counts as the final non-empty line', () => {
+  const o = setup()
+  const r = init({ ...o, artifact: join(o.cwd, 'plan.md'), seats: ['claude', 'codex'] })
+  const run = JSON.parse(readFileSync(join(r.dir, 'council.json'), 'utf8'))
+  writeFileSync(run.outputs['1'].claude, `<!-- council:done run=${r.run_id} seat=claude round=1 -->\n## partial, still writing`)
+  assert.equal(status({ dir: r.dir }).rounds['1'].claude, 'incomplete')
+  writeFileSync(run.outputs['1'].claude, `body\n<!-- council:done run=${r.run_id} seat=claude round=1 -->\n\n`)
+  assert.equal(status({ dir: r.dir }).rounds['1'].claude, 'done')
+})
+
+test('seat names are validated and runs are never overwritten', () => {
+  const o = setup()
+  assert.throws(() => init({ ...o, artifact: join(o.cwd, 'plan.md'), seats: ['claude', '../../escaped'] }), /invalid seat/)
+  assert.deepEqual(JSON.parse(readFileSync(join(init({ ...o, artifact: join(o.cwd, 'plan.md'), seats: [' claude', 'codex '] }).dir, 'council.json'), 'utf8')).seats, ['claude', 'codex'])
+  init({ ...o, artifact: join(o.cwd, 'plan.md'), seats: ['claude', 'codex'], runId: 'fixed' })
+  assert.throws(() => init({ ...o, artifact: join(o.cwd, 'plan.md'), seats: ['claude', 'codex'], runId: 'fixed' }), /already exists/)
+})

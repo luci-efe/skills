@@ -30,14 +30,24 @@ const which = (bin, env) => {
   return null
 }
 
-// The interpreter that owns the mnemosyne package is the one in the CLI's shebang (uv, pipx and pip installs).
+const imports = (py, env) => spawnSync(py, ['-c', 'import mnemosyne'], { env, timeout: 15_000, stdio: 'ignore' }).status === 0
+
+// The interpreter that owns the mnemosyne package. Order: explicit override, the CLI's shebang
+// (uv, pipx and pip on POSIX), then python3/python/py on PATH (Windows .exe launchers, sh wrappers).
 const python = (env) => {
+  if (env.RAMOS_MNEMOSYNE_PYTHON) return imports(env.RAMOS_MNEMOSYNE_PYTHON, env) ? env.RAMOS_MNEMOSYNE_PYTHON : null
   const exe = which('mnemosyne', env)
   if (!exe) return null
-  const first = readFileSync(exe, 'utf8').split('\n', 1)[0]
-  if (!first.startsWith('#!')) return null
-  const parts = first.slice(2).trim().split(/\s+/)
-  return parts[0].endsWith('/env') ? parts[1] : parts[0]
+  try {
+    const first = readFileSync(exe, 'utf8').slice(0, 512).split('\n', 1)[0]
+    if (first.startsWith('#!')) {
+      const parts = first.slice(2).trim().split(/\s+/)
+      const py = parts[0].endsWith('/env') ? parts[1] : parts[0]
+      if (/python/i.test(py) && imports(py, env)) return py
+    }
+  } catch {}
+  for (const py of ['python3', 'python', 'py']) if (which(py, env) && imports(py, env)) return py
+  return null
 }
 
 export const bankName = (repoId) => {

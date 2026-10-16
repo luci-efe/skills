@@ -45,6 +45,6 @@ recall(query, top_k=5, *, from_date=None, to_date=None, source=None, topic=None,
 5. `sleep` consolidates only *old* working memories. Running it immediately after `store` returns `no_op`, which is fine.
 
 ## What /relay stores (and never stores)
-Records: accepted invariants and decisions, rejected approaches with the reason, and episodic outcomes (including failed attempts). Each has `source = "relay:<run_id>:<kind>"` and `metadata = {repo_id, run_id, kind, source_ref, source_digest, status, supersedes}`.
+Records: accepted invariants and decisions, rejected approaches with the reason, and episodic outcomes (including failed attempts). Each has `source = "relay:<run_id>:<kind>"` (kind is `decision` or `rejected`) and `metadata = {repo_id, run_id, kind, decision_id, source_ref, source_digest, status}`. Superseding isn't tracked in v1: a changed decision is stored as a new memory, and the checkpoint stays authoritative.
 Never: secrets, raw transcripts, source code, generated HANDOFF.md, or ownership/status. Ownership and status live only in `handoff.json` (CONTRACTS §5).
 Order: write the checkpoint **first**, then sync memory. The checkpoint digest is the idempotency key, and a sync receipt is written to `…/memory-sync.json`. If mnemosyne fails, the checkpoint stands and the transfer is reported `blocked: mnemosyne unavailable`.

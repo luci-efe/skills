@@ -7,7 +7,7 @@ Source of decisions: council synthesis (private). Every seat builds against this
 skills/<name>/SKILL.md        # frontmatter: exactly `name`, `description` (trigger-first, "Use when…")
 skills/<name>/skill.json      # suite metadata (schema below); never repeats name/description
 skills/<name>/references/*.md # Tier 3, loaded only by a decision-tree branch
-skills/<name>/scripts/*.mjs   # Node ≥20 stdlib only, no npm deps at runtime
+skills/<name>/scripts/*.mjs   # Node ≥22 stdlib only, no npm deps at runtime
 lib/                          # shared runtime, vendored into skills by scripts/build (see §7)
 hooks/claude/                 # Claude Code hook adapter (optional install)
 test/                         # node --test; fixtures under test/fixtures/

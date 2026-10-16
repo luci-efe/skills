@@ -31,3 +31,9 @@ test('remember then recall round-trips within one bank and isolates others', { s
 test('recall rejects a missing bank instead of silently using the default', () => {
   assert.throws(() => recall({ query: 'anything here' }, { env }), /bank is required/)
 })
+
+test('RAMOS_MNEMOSYNE_PYTHON overrides discovery and is validated', { skip: !available({ env }).ok && 'mnemosyne not installed' }, () => {
+  const py = available({ env }).python
+  assert.equal(available({ env: { ...env, RAMOS_MNEMOSYNE_PYTHON: py } }).python, py)
+  assert.equal(available({ env: { ...env, RAMOS_MNEMOSYNE_PYTHON: '/nonexistent/python' } }).ok, false)
+})

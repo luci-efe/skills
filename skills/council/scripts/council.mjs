@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 // /council run bookkeeping: an artifact under review, bounded rounds, per-seat files with completion markers.
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { STATE_DIR } from './_lib/config.mjs'
 
 const MAX_ROUNDS = 2
-const stateDirOf = (o) => o.stateDir ?? join(o.cwd ?? process.cwd(), process.env.RAMOS_STATE_DIR ?? '.ramos')
+const stateDirOf = (o) => o.stateDir ?? resolve(o.cwd ?? process.cwd(), STATE_DIR)
+const SEAT = /^[a-z0-9][a-z0-9-]{0,31}$/
+const MIN_REVIEWS = 2
+const saveRun = (dir, run) => { const p = join(dir, 'council.json'); const tmp = `${p}.${process.pid}.tmp`; writeFileSync(tmp, `${JSON.stringify(run, null, 2)}\n`); renameSync(tmp, p) }
+const lastLine = (text) => text.trimEnd().split('\n').pop().trim()
 const marker = (run, seat, round) => `<!-- council:done run=${run} seat=${seat} round=${round} -->`
 
 const prompt = (run, round, artifact, seats) => {
@@ -31,15 +36,18 @@ ${marker(run.run_id, '<seat>', round)}
 export const init = (o) => {
   const artifact = resolve(o.cwd ?? process.cwd(), o.artifact ?? '')
   if (!o.artifact || !existsSync(artifact)) throw new Error('council needs an existing artifact under review (plan, spec, diff, or problem statement file)')
-  const seats = [...new Set(o.seats ?? [])]
+  const seats = [...new Set((o.seats ?? []).map((x) => String(x).trim()).filter(Boolean))]
+  for (const seat of seats) if (!SEAT.test(seat)) throw new Error(`invalid seat ${JSON.stringify(seat)}: use lowercase letters, digits and -`)
   if (seats.length < 2) throw new Error('council needs at least 2 seats from different model families')
   const run_id = o.runId ?? `c-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}-${randomUUID().slice(0, 4)}`
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(run_id)) throw new Error(`invalid run id ${JSON.stringify(run_id)}`)
   const dir = join(stateDirOf(o), 'council', run_id)
-  mkdirSync(dir, { recursive: true })
+  mkdirSync(join(stateDirOf(o), 'council'), { recursive: true })
+  try { mkdirSync(dir) } catch (e) { if (e.code === 'EEXIST') throw new Error(`council run ${run_id} already exists`); throw e }
   const outputs = {}
   for (let r = 1; r <= MAX_ROUNDS; r++) outputs[r] = Object.fromEntries(seats.map((s) => [s, join(dir, `round${r}.${s}.md`)]))
   const run = { schema_version: 1, run_id, artifact, seats, max_rounds: MAX_ROUNDS, outputs, missing: {}, created_at: new Date().toISOString() }
-  writeFileSync(join(dir, 'council.json'), `${JSON.stringify(run, null, 2)}\n`)
+  saveRun(dir, run)
   for (let r = 1; r <= MAX_ROUNDS; r++) writeFileSync(join(dir, `round${r}.prompt.md`), prompt(run, r, artifact, seats))
   return { run_id, dir }
 }
@@ -47,8 +55,11 @@ export const init = (o) => {
 export const markMissing = ({ dir, round, seat, reason }) => {
   const p = join(dir, 'council.json')
   const run = JSON.parse(readFileSync(p, 'utf8'))
-  run.missing[`${round}:${seat}`] = reason
-  writeFileSync(p, `${JSON.stringify(run, null, 2)}\n`)
+  if (!run.outputs[round]) throw new Error(`unknown round ${round}`)
+  if (!run.outputs[round][seat]) throw new Error(`unknown seat ${seat}`)
+  if (!reason || !String(reason).trim()) throw new Error('a non-empty --reason is required')
+  run.missing[`${round}:${seat}`] = String(reason).trim()
+  saveRun(dir, run)
 }
 
 export const status = ({ dir }) => {
@@ -60,12 +71,17 @@ export const status = ({ dir }) => {
     for (const [seat, path] of Object.entries(bySeat)) {
       const miss = run.missing[`${r}:${seat}`]
       rounds[r][seat] = miss ? `missing: ${miss}`
-        : existsSync(path) && readFileSync(path, 'utf8').includes(marker(run.run_id, seat, r)) ? 'done' : 'incomplete'
+        : existsSync(path) && lastLine(readFileSync(path, 'utf8')) === marker(run.run_id, seat, r) ? 'done' : 'incomplete'
     }
     round_closed[r] = Object.values(rounds[r]).every((v) => v !== 'incomplete')
   }
-  const synthesis = join(dir, 'SYNTHESIS.md')
-  return { run_id: run.run_id, rounds, round_closed, synthesis: existsSync(synthesis), complete: Object.values(round_closed).every(Boolean) && existsSync(synthesis) }
+  const problems = []
+  for (const [r, bySeat] of Object.entries(rounds)) {
+    const done = Object.values(bySeat).filter((v) => v === 'done').length
+    if (round_closed[r] && done < MIN_REVIEWS) problems.push(`round ${r} closed with fewer than ${MIN_REVIEWS} completed reviews (${done})`)
+  }
+  const synthesis = existsSync(join(dir, 'SYNTHESIS.md'))
+  return { run_id: run.run_id, rounds, round_closed, synthesis, problems, complete: Object.values(round_closed).every(Boolean) && synthesis && problems.length === 0 }
 }
 
 const main = (argv) => {

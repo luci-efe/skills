@@ -32,7 +32,7 @@ Run the failing test 3×. Mixed results → mark it flaky, capture timing and or
 **5. Optional runtime trace** → only when the failing path is unclear after reading. Use the language's tracer (`node --cpu-prof`, `py-spy record`, `go test -cpuprofile`). Report observed samples. A sampled profile can miss short calls.
 
 **6. Fix**
-Smallest change that makes the new test pass. Run the full suite. Anything new red → fix or revert your change.
+Anything newly red in the full suite → fix it or revert your change. Don't edit the regression test to make it pass.
 
 ## Done when
 - The regression test is committed in the repo's suite.

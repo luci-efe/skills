@@ -27,4 +27,5 @@ herdr pane send-keys <pane> Enter
 herdr pane read <pane> --source recent-unwrapped --lines 20   # confirm it submitted
 ```
 Codex's TUI often swallows the first Enter after pasted text. If the text is still in its input box, send `Enter` again. While Codex is busy, new text shows `tab to queue`, so send `Tab` to queue it.
+Seat files aren't authenticated: any pane could write another seat's file. The council assumes cooperative seats, so the chair checks attribution when synthesizing.
 Check status with `herdr pane get <pane>` → `agent_status` (`idle|working|blocked`). Use `idle` plus the marker in the seat file as the completion signal, never idle alone.
