@@ -24,6 +24,11 @@ jobs:
           python -m pip install uv
           uv tool install --python 3.12 mnemosyne-memory
           uv tool dir --bin >> "$GITHUB_PATH"
+      - name: Install real ast-grep for structural regression tests
+        shell: bash
+        run: |
+          npm install --global @ast-grep/cli@0.51.0
+          echo "$(npm root -g)/@ast-grep/cli" >> "$GITHUB_PATH"
       - name: Test with required relay memory coverage
         shell: bash
         run: |

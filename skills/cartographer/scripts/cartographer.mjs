@@ -96,6 +96,7 @@ function definitionRule(sym) {
   const kind=sym.id?.split(':')[0],kinds=python?{Function:'function_definition',Method:'function_definition',Class:'class_definition'}:{Function:'function_declaration',Method:'method_definition',Class:'class_declaration',Interface:'interface_declaration',TypeAlias:'type_alias_declaration',Variable:'variable_declarator'};
   if(!language||!kinds[kind])return null;
   const all=[{kind:kinds[kind]},{has:{field:'name',regex:`^${escapeRegex(sym.name)}$`}}];
+  if(python&&kind==='Function')all.push({not:{inside:{kind:'class_definition',stopBy:'end'}}});
   if(kind==='Method') {
     const qualified=sym.id.slice(sym.id.lastIndexOf(':')+1).split('.');
     if(qualified.length!==2)return null;

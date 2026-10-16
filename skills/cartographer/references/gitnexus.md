@@ -1,6 +1,6 @@
 # GitNexus Reference (Verified v1.6.4)
 
-Verified against `/opt/homebrew/bin/gitnexus` (`1.6.4`, darwin/arm64, LadybugDB + ONNX local embeddings).
+Verified against `gitnexus` (`1.6.4`, darwin/arm64, LadybugDB + ONNX local embeddings).
 
 ## 1. Operational Constraints & License Warning
 - **License (`PolyForm-Noncommercial-1.0.0`):** GitNexus `1.6.4` is licensed under `PolyForm-Noncommercial-1.0.0`. Check the license before using GitNexus in commercial repositories or organizations.
@@ -14,9 +14,9 @@ Verified against `/opt/homebrew/bin/gitnexus` (`1.6.4`, darwin/arm64, LadybugDB 
 Checks the index status of the current git repository (takes no `-r` flag; run with repo root as `cwd`):
 ```text
 Repository: /path/to/repo
-Indexed: 10/1/2026, 7:13:41 PM
-Indexed commit: ce7ce15
-Current commit: 1bc2d72
+Indexed: <capture timestamp>
+Indexed commit: 1111111
+Current commit: 2222222
 Status: ⚠️ stale (re-run gitnexus analyze)
 ```
 When up to date, prints `Status: ✅ up-to-date`. When unindexed, prints `Repository not indexed.`.
@@ -36,28 +36,28 @@ Searches the knowledge graph for execution flows (`processes`) and symbol defini
 ```json
 {
   "processes": [
-    { "id": "proc_34_revert_action_log_fr", "summary": "Example flow", "priority": 1, "symbol_count": 2, "process_type": "cross_community", "step_count": 2 }
+    { "id": "proc_fixture_refund_order", "summary": "Example flow", "priority": 1, "symbol_count": 2, "process_type": "cross_community", "step_count": 2 }
   ],
   "process_symbols": [
     {
-      "id": "Function:app/green_iteso/campaigns/services.py:revert_action_log_from_missions",
-      "name": "revert_action_log_from_missions",
-      "filePath": "app/green_iteso/campaigns/services.py",
-      "startLine": 327,
-      "endLine": 340,
-      "module": "Tests",
-      "process_id": "proc_34_revert_action_log_fr",
+      "id": "Function:flow.py:refund_order",
+      "name": "refund_order",
+      "filePath": "flow.py",
+      "startLine": 8,
+      "endLine": 9,
+      "module": "Fixture",
+      "process_id": "proc_fixture_refund_order",
       "step_index": 1
     }
   ],
   "definitions": [
     {
-      "id": "Function:app/green_iteso/actions/selectors.py:list_active_actions",
-      "name": "list_active_actions",
-      "filePath": "app/green_iteso/actions/selectors.py",
-      "startLine": 14,
-      "endLine": 16,
-      "module": "Actions"
+      "id": "Method:flow.py:Second.save",
+      "name": "save",
+      "filePath": "flow.py",
+      "startLine": 5,
+      "endLine": 6,
+      "module": "Fixture"
     }
   ],
   "timing": { "vector": 18.4, "bm25": 157.6, "merge": 0.1, "symbol_lookup": 427.5, "ranking": 0.1, "formatting": 0.1, "wall": 585.8 }

@@ -4,6 +4,8 @@ description: Use when validating a change, measuring a performance claim, verify
 ---
 # Proof
 
+`<this skill dir>` is the absolute directory containing this installed SKILL.md.
+
 - If checking code behavior → assertion: select the repository's existing relevant checks and observe their execution.
 - If claiming performance → perf: record a baseline and changed run under the same inputs/environment; check correctness and an explicit threshold, not elapsed time alone.
 - If checking a web UI → read `references/visual-web.md`; browser readiness and a user journey are mandatory.
@@ -12,10 +14,10 @@ description: Use when validating a change, measuring a performance claim, verify
 - Before adding checks → apply Delete → Repo → Stdlib → Minimal to unnecessary implementation additions; keep existing test conventions.
 - If checks are declared → save a JSON manifest with `checks` and nonempty `required_checks`. Each check has `id`, literal `argv`, optional project-relative `cwd`, and optional `timeout_ms` (default 120000, maximum 3600000).
 - If evidence artifacts are needed → include project-relative file paths in `artifacts`; keep generated logs/artifacts under the configured state directory so verification does not change source inputs.
-- Execute this skill's `scripts/run.mjs checks.json --run-id <unique-id> --session <session-id> --branch <branch>` with Node from the project cwd. Use an absolute script path for installed skills.
+- Execute `node <this skill dir>/scripts/run.mjs checks.json --run-id <unique-id> --session <session-id> --branch <branch>` from the project cwd. Use an absolute script path for installed skills.
 - If the input digest changes during checks → treat the run as blocked, stabilize inputs and rerun. Never reuse another revision's pass.
 - If execution fails, times out, or a command is missing → retain result/logs and report failed/blocked with a reason.
-- If checks passed → run `node scripts/check.mjs <run-id>` against the current project before claiming done; exit 0 passes, exit 2 is blocked.
+- If checks passed → run `node <this skill dir>/scripts/check.mjs <run-id>` against the current project before claiming done; exit 0 passes, exit 2 is blocked.
 - If using Windows command shims → use a tested native executable or `node <tool-cli.js>` argv. The runner never enables a shell to execute a `.cmd` fallback.
 
 Example manifest:

@@ -4,12 +4,14 @@ description: Use when installing this suite, checking missing tools, repairing d
 ---
 # Doctor
 
-- If inspecting readiness → run this skill's `scripts/doctor.mjs` with Node from the target project cwd. Use an absolute script path when installed elsewhere.
+`<this skill dir>` is the absolute directory containing this installed SKILL.md.
+
+- If inspecting readiness → run `node <this skill dir>/scripts/doctor.mjs` from the target project cwd. Use an absolute script path when installed elsewhere.
 - If only one branch matters → pass its provider IDs as positional arguments; do not require every integration for unrelated work.
 - If automation needs the matrix → pass `--json`; any missing/failed probe yields exit 2.
 - If a provider is missing → display its known platform install recipe; if no verified recipe exists, say so and consult `references/providers.md`. Do not guess a similarly named package.
 - If a binary is available → separately verify the branch's auth, service, browser or desktop readiness before work. `--help` does not establish those capabilities.
-- If explicitly wiring Claude hooks → run `node scripts/doctor.mjs --install-hooks claude --dry-run`, inspect the settings merge, then run without `--dry-run` under the user's existing authorization.
+- If explicitly wiring Claude hooks → run `node <this skill dir>/scripts/doctor.mjs --install-hooks claude --dry-run`, inspect the settings merge, then run without `--dry-run` under the user's existing authorization.
 - If settings are malformed → report the error; preserve the file rather than overwriting it.
 - If using Codex or Antigravity → use manual scripts; do not label Claude hooks active there.
 - If an index is stale → refresh discovery through compass. Code index freshness remains the selected cartographer provider's responsibility.
