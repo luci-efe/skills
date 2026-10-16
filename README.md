@@ -16,6 +16,19 @@ claude plugin install ramos-skills@ramos
 ```
 Then run `/doctor` in your repo. It lists missing tools with the exact install command, and can wire the optional Claude Code hooks.
 
+## Works in your agent
+The skills follow the open [Agent Skills](https://agentskills.io/specification) format (`SKILL.md` with `name` and `description`), so one install works across harnesses. `npx skills` writes to each agent's own folder:
+
+| Agent | Install | Lands in |
+|---|---|---|
+| Claude Code | `npx skills@latest add luci-efe/skills -a claude-code`, or the plugin below | `.claude/skills/` |
+| Codex, Gemini CLI, Cursor, GitHub Copilot, OpenCode, Antigravity | `npx skills@latest add luci-efe/skills -a codex` (swap the agent id) | `.agents/skills/` |
+| Any other of the 70+ agents `skills` supports | `npx skills@latest add luci-efe/skills` and pick yours | its own skills folder |
+
+Add `-g` for a global install and `--copy` to copy instead of symlink. Browse them on [skills.sh](https://skills.sh/luci-efe/skills).
+
+What differs by agent: the one hard `/proof` Stop gate and the other hooks are Claude Code only, because they use its hook events. In every other agent the same scripts run as manual checks (see `/doctor`). `/council` and `/relay` launch need [Herdr](https://herdr.dev).
+
 ## The skills
 | Stage | Skill | Use when | Rule |
 |---|---|---|---|
@@ -83,3 +96,4 @@ Los comandos y nombres de archivo se mantienen en inglés.
 
 ## License
 MIT © Fernando Ramos
+- **Funciona en tu agente.** Sigue el formato abierto [Agent Skills](https://agentskills.io/specification). Claude Code: `npx skills@latest add luci-efe/skills -a claude-code`. Codex, Gemini CLI, Cursor, GitHub Copilot, OpenCode y Antigravity: `-a codex` (cambia el id del agente). Los hooks y la compuerta de `/proof` son solo de Claude Code; en los demás agentes los mismos scripts se ejecutan manualmente.

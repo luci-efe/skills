@@ -1,0 +1,11 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "notGrouped": "bottom",
+  "groupings": [
+    { "title": "Orient", "description": "Set up, route, and map the code before changing it.", "skills": ["doctor", "compass", "cartographer"] },
+    { "title": "Decide", "description": "Sharpen the plan and get several model families to review big decisions.", "skills": ["crucible", "council"] },
+    { "title": "Build", "description": "Turn a bug into a failing test first.", "skills": ["reproduce"] },
+    { "title": "Prove", "description": "Evidence of done, and known-vulnerability checks.", "skills": ["proof", "red-team"] },
+    { "title": "Continue", "description": "Hand work to another session, agent, or machine.", "skills": ["relay"] }
+  ]
+}
