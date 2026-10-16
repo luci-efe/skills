@@ -49,7 +49,7 @@ JSON ≤ 8 KiB, strings ≤ 240 chars. The checkpoint is immutable, written via 
 SessionStart injection ≤ 400 tokens (≤1600 bytes): status, STALE flag, objective, next action, ≤3 memory hits, then a read pointer.
 
 ## 6. Hooks (Claude Code adapter, advisory)
-- Only the `/proof` Stop gate blocks. It blocks when the active run (`STATE_DIR/active.json` for this session) says `claimed_done:true` and no valid, non-stale `result.json` has `status:passed`. It allows `blocked|failed|cancelled` with a reason, honours `stop_hook_active`, and never runs checks, network, or spawns.
+- Only the `/proof` Stop gate blocks. It blocks when the active run (`STATE_DIR/active.json` for this session) says `claimed_done:true` and no valid, non-stale `result.json` has `status:passed`. It allows `blocked|failed|cancelled` with a reason, honours `stop_hook_active`. It may run bounded, read-only git metadata commands (`git rev-parse`, `git status --porcelain`, `git ls-files`, `git hash-object`) to recompute the §4 digest, with a timeout. It never runs checks or tests, never touches the network, never mutates, and never launches agents or sessions.
 - `UserPromptSubmit`: `/compass` emits at most 1 line, `compass: consider /<skill> — <reason>`. Silent below threshold.
 - `SessionStart`: `/relay` injects the assigned checkpoint per §5. `/doctor` warns when the index is stale.
 - Other harnesses: the same scripts run as manual gates (`node skills/proof/scripts/check.mjs`).
