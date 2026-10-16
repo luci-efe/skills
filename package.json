@@ -10,6 +10,7 @@
     "test": "node --test \"test/**/*.test.mjs\"",
     "build:vendor": "node scripts/vendor.mjs",
     "check:vendor": "node scripts/vendor.mjs --check",
-    "lint:skills": "node scripts/lint-skills.mjs"
+    "lint:skills": "node scripts/lint-skills.mjs",
+    "test:e2e": "node --test test/e2e/install.mjs"
   }
 }
