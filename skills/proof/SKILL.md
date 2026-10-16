@@ -20,7 +20,7 @@ description: Use when validating a change, measuring a performance claim, verify
 
 Example manifest:
 ```json
-{"checks":[{"id":"unit","argv":["node","--test"]}],"required_checks":["unit"],"artifacts":[]}
+{"checks":[{"id":"unit","argv":["node","--test","test/**/*.test.mjs"]}],"required_checks":["unit"],"artifacts":[]}
 ```
 The runner writes `STATE_DIR/runs/<run-id>/result.json`; `STATE_DIR` comes from the installed config module and can be overridden by `RAMOS_STATE_DIR`. It never overwrites an existing run ID. Session registry entries are keyed by session ID. Without `--session` or `RAMOS_SESSION_ID`/`CLAUDE_SESSION_ID`, use the manual check; no hook is armed for an inferred session.
 

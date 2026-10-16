@@ -5,9 +5,9 @@
   "description": "Agentic engineering skills by Fernando Ramos — evidence of done, context that continues, many models.",
   "type": "module",
   "license": "MIT",
-  "engines": { "node": ">=20" },
+  "engines": { "node": ">=22" },
   "scripts": {
-    "test": "node --test",
+    "test": "node --test \"test/**/*.test.mjs\"",
     "build:vendor": "node scripts/vendor.mjs",
     "check:vendor": "node scripts/vendor.mjs --check",
     "lint:skills": "node scripts/lint-skills.mjs"
