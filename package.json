@@ -7,7 +7,7 @@
   "license": "MIT",
   "engines": { "node": ">=20" },
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test",
     "build:vendor": "node scripts/vendor.mjs",
     "check:vendor": "node scripts/vendor.mjs --check",
     "lint:skills": "node scripts/lint-skills.mjs"
