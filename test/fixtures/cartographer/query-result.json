@@ -1,0 +1,15 @@
+{
+  "processes": [],
+  "process_symbols": [],
+  "definitions": [],
+  "timing": {
+    "vector": 11.2,
+    "bm25": 12.7,
+    "merge": 0,
+    "symbol_lookup": 0,
+    "ranking": 0,
+    "formatting": 0,
+    "wall": 15.2
+  },
+  "warning": "FTS indexes missing — keyword search degraded. Run: gitnexus analyze --force to rebuild indexes."
+}

@@ -1,0 +1,6 @@
+{"type":"begin","data":{"path":{"text":"./flow.py"}}}
+{"type":"match","data":{"path":{"text":"./flow.py"},"lines":{"text":"    def save(self):\n"},"line_number":2,"absolute_offset":13,"submatches":[{"match":{"text":"save"},"start":8,"end":12}]}}
+{"type":"match","data":{"path":{"text":"./flow.py"},"lines":{"text":"    def save(self):\n"},"line_number":6,"absolute_offset":65,"submatches":[{"match":{"text":"save"},"start":8,"end":12}]}}
+{"type":"match","data":{"path":{"text":"./flow.py"},"lines":{"text":"    return Second().save()\n"},"line_number":10,"absolute_offset":128,"submatches":[{"match":{"text":"save"},"start":20,"end":24}]}}
+{"type":"end","data":{"path":{"text":"./flow.py"},"binary_offset":null,"stats":{"elapsed":{"secs":0,"nanos":282166,"human":"0.000282s"},"searches":1,"searches_with_match":1,"bytes_searched":155,"bytes_printed":640,"matched_lines":3,"matches":3}}}
+{"data":{"elapsed_total":{"human":"0.005393s","nanos":5393500,"secs":0},"stats":{"bytes_printed":640,"bytes_searched":155,"elapsed":{"human":"0.000282s","nanos":282166,"secs":0},"matched_lines":3,"matches":3,"searches":1,"searches_with_match":1}},"type":"summary"}

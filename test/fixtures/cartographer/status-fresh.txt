@@ -1,0 +1,5 @@
+Repository: /private/tmp/carto-capture-n7to4dvu/repo
+Indexed: 10/16/2026, 12:03:20 AM
+Indexed commit: 9ea8a9d
+Current commit: 9ea8a9d
+Status: ✅ up-to-date
