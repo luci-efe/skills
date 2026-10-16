@@ -35,7 +35,7 @@ test('selective proof copy works without the source lib',async()=>{
 test('vendor check and skill lint pass, drift is detected in a fixture',async()=>{
   const check=cli('scripts/vendor.mjs',['--check']);assert.equal(check.status,0,check.stderr);
   const lint=cli('scripts/lint-skills.mjs');assert.equal(lint.status,0,lint.stderr);
-  const cwd=await temp();await cp(join(repo,'lib'),join(cwd,'lib'),{recursive:true});await cp(join(repo,'skills/proof'),join(cwd,'skills/proof'),{recursive:true});await mkdir(join(cwd,'scripts'));await cp(join(repo,'scripts/vendor.mjs'),join(cwd,'scripts/vendor.mjs'));
+  const cwd=await temp();await cp(join(repo,'lib'),join(cwd,'lib'),{recursive:true});await cp(join(repo,'LICENSE'),join(cwd,'LICENSE'));await cp(join(repo,'skills/proof'),join(cwd,'skills/proof'),{recursive:true});await mkdir(join(cwd,'scripts'));await cp(join(repo,'scripts/vendor.mjs'),join(cwd,'scripts/vendor.mjs'));
   await writeFile(join(cwd,'skills/proof/scripts/_lib/config.mjs'),'drift');
   const r=spawnSync(process.execPath,[join(cwd,'scripts/vendor.mjs'),'--check'],{cwd,encoding:'utf8'});assert.equal(r.status,1);assert.match(r.stderr,/drift/i);
 });
@@ -80,16 +80,19 @@ test('plugin-installed doctor hooks discover sibling relay outside project and u
   assert.equal(direct.status,0,direct.stderr);assert.match(JSON.parse(direct.stdout).hookSpecificOutput?.additionalContext??'',/Resume plugin handoff/);
 });
 test('vendoring selects runtime consumers and leaves documentation-only skills untouched',async()=>{
-  const cwd=await temp();await cp(join(repo,'lib'),join(cwd,'lib'),{recursive:true});await mkdir(join(cwd,'scripts'));await cp(join(repo,'scripts/vendor.mjs'),join(cwd,'scripts/vendor.mjs'));
+  const cwd=await temp();await cp(join(repo,'lib'),join(cwd,'lib'),{recursive:true});await cp(join(repo,'LICENSE'),join(cwd,'LICENSE'));await mkdir(join(cwd,'scripts'));await cp(join(repo,'scripts/vendor.mjs'),join(cwd,'scripts/vendor.mjs'));
   for(const name of ['static','dynamic','docs'])await mkdir(join(cwd,'skills',name,'scripts'),{recursive:true});
   await writeFile(join(cwd,'skills/static/scripts/run.mjs'),"import { STATE_DIR } from './_lib/config.mjs';\n");
   await writeFile(join(cwd,'skills/dynamic/scripts/run.mjs'),"await import('./_lib/config.mjs');\n");
   await writeFile(join(cwd,'skills/docs/scripts/example.mjs'),'console.log("no shared library");\n');
   const run=(args=[])=>spawnSync(process.execPath,[join(cwd,'scripts/vendor.mjs'),...args],{cwd,encoding:'utf8'});
+  await mkdir(join(cwd,'skills/no-scripts'));
   const built=run();assert.equal(built.status,0,built.stderr);
+  for(const name of ['static','dynamic','docs','no-scripts'])assert.equal(await readFile(join(cwd,'skills',name,'LICENSE'),'utf8'),await readFile(join(repo,'LICENSE'),'utf8'));
   await assert.rejects(readFile(join(cwd,'skills/docs/scripts/_lib/config.mjs')),{code:'ENOENT'});
   for(const name of ['static','dynamic'])assert.equal(await readFile(join(cwd,'skills',name,'scripts/_lib/config.mjs'),'utf8'),await readFile(join(cwd,'lib/config.mjs'),'utf8'));
   const checked=run(['--check']);assert.equal(checked.status,0,checked.stderr);
+  await writeFile(join(cwd,'skills/no-scripts/LICENSE'),'drift');assert.equal(run(['--check']).status,1);assert.equal(run().status,0);
   await mkdir(join(cwd,'skills/docs/scripts/_lib'));await writeFile(join(cwd,'skills/docs/scripts/_lib/config.mjs'),'obsolete');
   assert.equal(run(['--check']).status,1);
   assert.equal(run().status,0);await assert.rejects(readFile(join(cwd,'skills/docs/scripts/_lib/config.mjs')),{code:'ENOENT'});

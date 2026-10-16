@@ -32,9 +32,9 @@ ast-grep run -p '<pattern>' -l <lang> --json=compact [path...]
   - `ast-grep run -p 'async def $NAME($$$): $$$' -l py`
 - **Class definitions:**
   - `ast-grep run -p 'class $NAME($$$): $$$' -l py`
-- **Call sites of a target symbol (`revert_action_log_from_missions`):**
-  - `ast-grep run -p 'revert_action_log_from_missions($$$)' -l py`
-  - `ast-grep run -p '$OBJ.revert_action_log_from_missions($$$)' -l py`
+- **Call sites of a target symbol (`refund_order`):**
+  - `ast-grep run -p 'refund_order($$$)' -l py`
+  - `ast-grep run -p '$OBJ.refund_order($$$)' -l py`
 
 ### Go (`-l go`)
 - **Functions and receiver methods:**

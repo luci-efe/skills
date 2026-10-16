@@ -26,6 +26,7 @@ function tools(t,{index='stale',payload=data,ast=[method],rg=[],queryError=false
   const spawn=childProcess.spawn,calls=[],outDir=mkdtempSync(join(tmpdir(),'carto tool output '));
   const mocked=mock.method(childProcess,'spawn',(bin,args,options)=>{
     if(!['gitnexus','ast-grep','rg'].includes(bin))return spawn(bin,args,options);
+    if(bin==='ast-grep'&&ast==='real')return spawn(bin,args,options);
     calls.push([bin,...args]);
     if((bin==='gitnexus'&&index==='absent')||(bin==='ast-grep'&&ast===null)||(bin==='rg'&&rg===null))return spawn(join(tmpdir(),'missing-carto-tool-9dd6',bin),args,options);
     let out='',code=0;
@@ -121,4 +122,15 @@ test('explicit pattern selects baseline even with a fresh index',async t=>{
 });
 test('malformed GitNexus output is a blocked error',async t=>{
   tools(t,{payload:'not JSON'});const result=await query('save',{cwd:repo()});assert.equal(result.status,'blocked');assert.ok(result.gitnexus_error);
+});
+
+test('N1 real ast-grep does not substitute a class method for a deleted top-level function',async t=>{
+  const cwd=repo();writeFileSync(join(cwd,'flow.py'),'class K:\n    def standalone(self):\n        return 1\n');
+  tools(t,{ast:'real',payload:{process_symbols:[{id:'Function:flow.py:standalone',name:'standalone',filePath:'flow.py',startLine:1,endLine:2}]}});
+  const result=await query('standalone',{cwd});
+  assert.notEqual(result.status,'blocked',JSON.stringify(result));
+  assert.equal(result.verified_symbols[0].verified,false);
+  assert.equal(result.verified_symbols[0].definition_found,false);
+  writeFileSync(join(cwd,'flow.py'),'def standalone():\n    return 1\n');
+  const live=await query('standalone',{cwd});assert.equal(live.verified_symbols[0].verified,true);assert.equal(live.verified_symbols[0].live_line,1);
 });

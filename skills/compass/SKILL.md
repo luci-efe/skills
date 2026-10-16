@@ -4,8 +4,10 @@ description: Use when choosing the next engineering skill, discovering installed
 ---
 # Compass
 
+`<this skill dir>` is the absolute directory containing this installed SKILL.md.
+
 - If the user names a skill → select that skill; do not replace their intent with a keyword match.
-- If no skill is named → run `node scripts/compass.mjs route "<task>"` from this skill's directory, with the project as the command's working directory (use the script's absolute path).
+- If no skill is named → run `node <this skill dir>/scripts/compass.mjs route "<task>"` with the project as the command's working directory (use the script's absolute path).
 - If installation is broken → doctor; if behavior fails → reproduce; if a domain/flow is unknown → cartographer.
 - If requirements have unresolved forks → crucible; if an artifact needs independent review → council.
 - If evidence is needed → proof; if security exposure is suspected → red-team; if a session must continue → relay.
@@ -17,8 +19,8 @@ description: Use when choosing the next engineering skill, discovering installed
 - If the receipt is ready → read its entrypoint, follow one reference at a time, and check artifact preconditions before advancing.
 - If traversal revisits a skill or exceeds three transitions → return control to the task owner; do not loop.
 
-`node scripts/compass.mjs index` refreshes installed metadata. Configured roots include project/user Claude and Agents roots, user Codex, and paths in `RAMOS_SKILL_ROOTS` separated by the platform path delimiter.
-`node scripts/compass.mjs nudge "<prompt>"` emits at most one advisory line; it never probes or calls a model.
+`node <this skill dir>/scripts/compass.mjs index` refreshes installed metadata. Configured roots include project/user Claude and Agents roots, user Codex, and paths in `RAMOS_SKILL_ROOTS` separated by the platform path delimiter.
+`node <this skill dir>/scripts/compass.mjs nudge "<prompt>"` emits at most one advisory line; it never probes or calls a model.
 
 Done: a receipt identifies one selected skill/branch, reason, entrypoint, fresh prerequisite results and expected artifact schema, or explicitly records no match/ambiguity/blocker. Routing alone is not task completion.
 

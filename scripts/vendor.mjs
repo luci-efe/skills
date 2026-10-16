@@ -4,9 +4,14 @@ import { resolve } from 'node:path';
 const root=fileURLToPath(new URL('../',import.meta.url));const check=process.argv.includes('--check');
 try {
   const sources=(await readdir(resolve(root,'lib'))).filter(p=>/\.(mjs|json)$/.test(p)).sort();
-  let count=0;const failures=[];
+  let count=0,licenses=0;const failures=[];
+  const license=await readFile(resolve(root,'LICENSE'));
   for(const entry of await readdir(resolve(root,'skills'),{withFileTypes:true})) {
     if(!entry.isDirectory())continue;
+    const notice=resolve(root,'skills',entry.name,'LICENSE');
+    if(check) {try{if(!(await readFile(notice)).equals(license))failures.push(`${entry.name}/LICENSE`);}catch{failures.push(`${entry.name}/LICENSE (missing)`);}}
+    else await copyFile(resolve(root,'LICENSE'),notice);
+    licenses++;
     const scripts=resolve(root,'skills',entry.name,'scripts');
     let entries;try{entries=await readdir(scripts,{withFileTypes:true});}catch(error){if(error.code==='ENOENT')continue;throw error;}
     const code=await Promise.all(entries.filter(e=>e.isFile()&&e.name.endsWith('.mjs')).map(e=>readFile(resolve(scripts,e.name),'utf8')));
@@ -26,5 +31,5 @@ try {
     if(check) {try{for(const name of await readdir(dest))if(!sources.includes(name))failures.push(`${entry.name}/${name} (unexpected)`);}catch{}}
   }
   if(failures.length)throw new Error(`Vendor drift:\n${failures.join('\n')}`);
-  console.log(`${check?'Verified':'Vendored'} ${count} runtime files`);
+  console.log(`${check?'Verified':'Vendored'} ${count} runtime files and ${licenses} license notices`);
 }catch(error){console.error(error.message);process.exitCode=1;}
