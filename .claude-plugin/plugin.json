@@ -1,0 +1,14 @@
+{
+  "name": "ramos-skills",
+  "version": "0.1.0",
+  "description": "Fernando Ramos' agentic engineering skills: evidence of done, context that continues, many models in one council.",
+  "author": { "name": "Fernando Ramos", "url": "https://ferramos.com" },
+  "homepage": "https://ferramos.com/skills",
+  "repository": "https://github.com/luci-efe/skills",
+  "license": "MIT",
+  "keywords": ["engineering", "skills", "agents", "evidence", "handoff", "multi-model", "herdr"],
+  "skills": [
+    "./skills/doctor", "./skills/compass", "./skills/cartographer", "./skills/crucible", "./skills/council",
+    "./skills/reproduce", "./skills/proof", "./skills/red-team", "./skills/relay"
+  ]
+}

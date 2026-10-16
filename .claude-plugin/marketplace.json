@@ -1,0 +1,14 @@
+{
+  "name": "ramos",
+  "owner": { "name": "Fernando Ramos", "url": "https://ferramos.com" },
+  "description": "Fernando Ramos' agentic engineering skills as an installable Claude Code plugin.",
+  "plugins": [
+    {
+      "name": "ramos-skills",
+      "source": "./",
+      "description": "Nine skills for agentic engineering: doctor, compass, cartographer, crucible, council, reproduce, proof, red-team, relay.",
+      "category": "engineering",
+      "keywords": ["engineering", "skills", "evidence", "handoff", "multi-model"]
+    }
+  ]
+}
