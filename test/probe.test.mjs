@@ -74,7 +74,8 @@ test('catalog covers required IDs and unknown recipes remain explicit', () => {
     assert.ok(Array.isArray(providers[id].probe), id);
     assert.equal(typeof providers[id].verified, 'boolean');
   }
-  assert.equal(providers['ast-grep'].bin, 'sg');
+  assert.equal(providers['ast-grep'].bin, 'ast-grep');
+  assert.deepEqual(providers['ast-grep'].probe, ['ast-grep', '--version']);
   assert.equal(installCommand('mnemosyne'), null);
   assert.equal(installCommand('unknown'), null);
   assert.equal(installCommand('codex', 'win32'), 'npm install -g @openai/codex');

@@ -51,9 +51,9 @@
     "verified": true
   },
   "ast-grep": {
-    "bin": "sg",
+    "bin": "ast-grep",
     "probe": [
-      "sg",
+      "ast-grep",
       "--version"
     ],
     "install": {
