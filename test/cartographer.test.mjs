@@ -152,3 +152,16 @@ test('baseline malformed ast-grep pattern is blocked with an error',async()=>{
   const r=await query('foo',{cwd,pattern:'foo(',lang:'js'});
   assert.equal(r.status,'blocked');assert.match(r.errors.join(),/invalid pattern/);
 });
+test('baseline default limit is 50 and an explicit limit is honoured with truncated',async()=>{
+  const cwd=plain({'big.js':Array.from({length:60},(_,i)=>`needle(${i})`).join('\n')+'\n'});
+  const d=await query('needle',{cwd});
+  assert.equal(d.rg_matches.length,50);assert.equal(d.truncated,true);
+  const few=await query('needle',{cwd,limit:60});assert.equal(few.rg_matches.length,60);assert.equal(few.truncated,false);
+  assert.equal((await query('needle',{cwd,limit:101})).status,'blocked');
+});
+test('baseline runs ast-grep on the whole repo when rg has no hits but a pattern is given',async()=>{
+  const cwd=plain({'a.js':'foo(1)\nfoo(2)\n','b.js':'bar(1)\n'});
+  const r=await query('no-such-concept',{cwd,pattern:'foo($A)',lang:'js'});
+  assert.equal(r.status,'ok');assert.equal(r.ast_scope,'repo');assert.equal(r.rg_matches.length,0);assert.equal(r.ast_matches.length,2);
+  assert.equal((await query('foo',{cwd,pattern:'foo($A)',lang:'js'})).ast_scope,'rg_files');
+});

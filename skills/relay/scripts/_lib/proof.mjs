@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { inside, safeId, fileSHA256 } from './files.mjs';
 import { inputDigest } from './digest.mjs';
 import { execute } from './execute.mjs';
-import { runDirectory, writeResult, setActiveRun } from './result.mjs';
+import { runDirectory, writeResult, setActiveRun, MIN_PERF_BASELINE_MS, MAX_PERF_RATIO } from './result.mjs';
 const elapsed=c=>Date.parse(c.ended_at)-Date.parse(c.started_at);
 export function perfVerdict(perf,checks) {
   const base=checks.find(c=>c.id===perf.baseline_check),changed=checks.find(c=>c.id===perf.changed_check);
@@ -24,7 +24,7 @@ export async function runChecks(manifest,{cwd=process.cwd(),runId=randomUUID(),s
     if(branch!=='perf')throw new Error('manifest.perf requires --branch perf');
     if(!perf||typeof perf!=='object'||!ids.has(perf.baseline_check)||!ids.has(perf.changed_check)||perf.baseline_check===perf.changed_check)throw new Error('perf needs distinct baseline_check and changed_check that are declared checks');
     if(!manifest.required_checks.includes(perf.baseline_check)||!manifest.required_checks.includes(perf.changed_check))throw new Error('perf checks must be in required_checks');
-    if(typeof perf.max_ratio!=='number'||!Number.isFinite(perf.max_ratio)||perf.max_ratio<=0)throw new Error('perf.max_ratio must be a positive number');
+    if(typeof perf.max_ratio!=='number'||!Number.isFinite(perf.max_ratio)||perf.max_ratio<=0||perf.max_ratio>MAX_PERF_RATIO)throw new Error(`perf.max_ratio must be a positive number up to ${MAX_PERF_RATIO}`);
   } else if(branch==='perf')throw new Error('perf branch needs manifest.perf {baseline_check, changed_check, max_ratio}');
   const dir=runDirectory(cwd,runId);await mkdir(resolve(dir,'..'),{recursive:true});
   try {await mkdir(dir);}catch(error){if(error.code==='EEXIST')throw new Error(`run id already exists: pick a new --run-id (${runId})`);throw error;}
@@ -44,11 +44,13 @@ export async function runChecks(manifest,{cwd=process.cwd(),runId=randomUUID(),s
       if(execution.exit!==0){result.status=execution.exit===null?'blocked':'failed';result.reason=execution.diagnostic??`Check ${check.id} exited ${execution.exit}`;break;}
     }
     if(result.checks.length===manifest.checks.length && result.checks.every(c=>c.exit===0)) {
+      let inconclusive=false;
       if(perf) {
         result.perf=perfVerdict(perf,result.checks);
-        if(result.perf.ratio>perf.max_ratio){result.status='failed';result.reason=`Perf ratio ${result.perf.ratio.toFixed(2)} exceeds max_ratio ${perf.max_ratio}`;}
+        if(result.perf.baseline_ms<MIN_PERF_BASELINE_MS){inconclusive=true;result.status='blocked';result.reason=`Perf inconclusive: baseline ran ${result.perf.baseline_ms}ms (< ${MIN_PERF_BASELINE_MS}ms), so the ratio is noise; make the workload longer`;}
+        else if(result.perf.ratio>perf.max_ratio){result.status='failed';result.reason=`Perf ratio ${result.perf.ratio.toFixed(2)} exceeds max_ratio ${perf.max_ratio}`;}
       }
-      if(result.status==='blocked') {
+      if(result.status==='blocked'&&!inconclusive) {
       const after=await inputDigest(cwd);
       if(after.input_digest!==source.input_digest||after.head!==source.head) {result.status='blocked';result.reason='Source inputs changed during checks; rerun against stable inputs';}
       else {

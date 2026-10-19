@@ -49,6 +49,17 @@ test('frontmatter supports BOM, CRLF, scalar, quotes and folded descriptions; re
   assert.throws(()=>parseFrontmatter('---\nname: x\n---'),/requires name and description/i);
   assert.throws(()=>parseFrontmatter('---\nname: x\ndescription: [bad]\n---'));
 });
+test('frontmatter: list items at column 0, digit keys, folded plain scalars, junk and duplicate extras',()=>{
+  const ok={name:'x',description:'Use when x'};
+  assert.deepEqual(parseFrontmatter('---\nname: x\ndescription: Use when x\nallowed-tools:\n- Bash\n- Read\nx2: 1\n---'),ok);
+  assert.deepEqual(parseFrontmatter('---\nname: x\nName: Other\ndescription: Use when x\n---'),ok);
+  assert.equal(parseFrontmatter('---\nname: x\ndescription: Use when a\n  and b\n  and c\n---').description,'Use when a and b and c');
+  assert.throws(()=>parseFrontmatter('---\nname: x\n  junk\ndescription: Use when x\n---'),/indented/);
+  assert.throws(()=>parseFrontmatter('---\nname: "x"\n  junk\ndescription: Use when x\n---'),/indented/);
+  assert.throws(()=>parseFrontmatter('---\nname: x\n- Bash\ndescription: Use when x\n---'),/Unsupported/);
+  assert.throws(()=>parseFrontmatter('---\nname: x\ndescription: Use when x\nlicense: a\nlicense: b\n---'),/Duplicate key: license/);
+  assert.throws(()=>parseFrontmatter('---\nName: x\ndescription: Use when x\n---'),/requires name and description/);
+});
 test('discovery detects new/deleted metadata and undeclared third-party dependencies',async()=>{
   const cwd=await temp(), root=join(cwd,'skills');const dir=await skill(root);let found=await discoverSkills({cwd,roots:[root]});assert.equal(found.length,1);assert.equal(found[0].dependency_status,'declared');
   await skill(root,'third-party',null); found=await discoverSkills({cwd,roots:[root]});assert.equal(found.length,2);assert.equal(found.find(s=>s.name==='third-party').dependency_status,'undeclared');
@@ -61,7 +72,7 @@ test('router limits candidates, probes selection, and nudge stays advisory and o
   const receipt=await route('verify the tests',{cwd,skills,probeFn:async ids=>{called=true;return [];}});assert.equal(called,true);assert.equal(receipt.selected.name,'proof');assert.equal(receipt.status,'ready');assert.ok(receipt.candidates.length<=3);
   const blocked=await route('/proof',{cwd,skills,probeFn:async()=>[{id:'node',ok:false,missing_install:'install node'}]});assert.equal(blocked.status,'blocked');
   assert.match(nudge('verify tests',skills),/^compass: consider \/proof/);assert.equal(nudge('hello there',skills),'');assert.equal(nudge('verify\ntests',skills).split('\n').length,1);
-  for(const p of ['the checkout test fails intermittently','the build failed','a flaky test','tests fail on CI'])assert.equal((await route(p,{cwd,skills,probeFn:async()=>[]})).selected.name,'reproduce',p);
+  for(const p of ['the checkout test fails intermittently','the build failed','a flaky test','tests are failing on CI'])assert.equal((await route(p,{cwd,skills,probeFn:async()=>[]})).selected.name,'reproduce',p);
   const unknown=await route('verify the tests',{cwd,skills,branch:'red-team',probeFn:async()=>[]});assert.equal(unknown.status,'blocked');assert.match(unknown.reason,/Unknown branch red-team; to pick a skill use --skill/);
 });
 test('result validation rejects stale, empty checks and failed required checks',async()=>{
@@ -149,4 +160,18 @@ test('non-git project root uses CLAUDE_PROJECT_DIR only when it contains cwd',as
     process.env.CLAUDE_PROJECT_DIR=other;assert.equal(workspaceRoot(pkg),pkg);
     process.env.CLAUDE_PROJECT_DIR=join(root,'missing');assert.equal(workspaceRoot(pkg),pkg);
   }finally{if(previous===undefined)delete process.env.CLAUDE_PROJECT_DIR;else process.env.CLAUDE_PROJECT_DIR=previous;}
+});
+test('validateResult rejects tampered perf records, tiny baselines, absurd max_ratio and perf on other branches',async()=>{
+  const cwd=await temp();await writeFile(join(cwd,'source'),'one');const base=await evidence(cwd);
+  const mk=(baseMs,changedMs)=>{
+    const t=ms=>new Date(Date.parse('2026-01-01T00:00:00Z')+ms).toISOString();
+    const a={...base.checks[0],id:'base',started_at:t(0),ended_at:t(baseMs)},b={...base.checks[0],id:'changed',started_at:t(0),ended_at:t(changedMs)};
+    return {...base,branch:'perf',run_id:'run1',checks:[a,b],required_checks:['base','changed'],perf:{baseline_check:'base',changed_check:'changed',baseline_ms:baseMs,changed_ms:changedMs,ratio:changedMs/baseMs,max_ratio:2}};
+  };
+  const good=mk(1000,1500);assert.equal((await validateResult(cwd,good)).ok,true);
+  assert.match((await validateResult(cwd,{...good,perf:{...good.perf,ratio:0.5}})).reason,/does not match check timestamps/);
+  assert.match((await validateResult(cwd,{...good,perf:{...good.perf,changed_ms:10}})).reason,/does not match check timestamps/);
+  assert.equal((await validateResult(cwd,{...good,perf:{...good.perf,max_ratio:1000}})).ok,false);
+  assert.match((await validateResult(cwd,mk(10,15))).reason,/inconclusive/);
+  assert.match((await validateResult(cwd,{...base,perf:good.perf})).reason,/requires the perf branch/);
 });

@@ -119,14 +119,17 @@ async function verifySymbolLive(sym,{cwd,env}) {
   const nearby=candidates.filter(line=>Math.abs(line-sym.startLine)<=window);
   return {...base,definition_found:candidates.length>0,ambiguous:nearby.length>1,verified:nearby.length===1,live_line:nearby.length===1?nearby[0]:null,...(nearby.length===0?{reason:'no definition within indexed line window; use baseline to locate moves'}:{})};
 }
-export async function query(concept,{cwd=process.cwd(),env=process.env,repo,limit=5,pattern,lang,regex=false}={}) {
+const DEFAULT_BASELINE_LIMIT=50; // rg/ast matches returned when --limit is absent (max 100)
+export async function query(concept,{cwd=process.cwd(),env=process.env,repo,limit,pattern,lang,regex=false}={}) {
   const st=await status({cwd,env});
   if(st.status==='blocked'||st.errors.length)return {...st,status:'blocked'};
   cwd=st.root;
   if(repo!==undefined)return {...st,status:'blocked',errors:['--repo is not supported; run from the target repository instead']};
-  if(!Number.isSafeInteger(limit)||limit<1||limit>100)return {...st,status:'blocked',errors:['limit must be an integer from 1 to 100']};
+  if(limit!==undefined&&(!Number.isSafeInteger(limit)||limit<1||limit>100))return {...st,status:'blocked',errors:['limit must be an integer from 1 to 100']};
+  const gitnexusLimit=limit??5;
+  limit??=DEFAULT_BASELINE_LIMIT;
   if(!pattern&&(st.gitnexus==='fresh'||st.gitnexus==='stale')) {
-    const result=await execute('gitnexus',['query','-l',String(limit),'--',concept],{cwd,env});
+    const result=await execute('gitnexus',['query','-l',String(gitnexusLimit),'--',concept],{cwd,env});
     try {
       if(result.code!==0||result.error||result.truncated)throw new Error(diagnostic(result));
       const parsed=JSON.parse(result.stdout);
@@ -165,9 +168,10 @@ export async function query(concept,{cwd=process.cwd(),env=process.env,repo,limi
     output.truncated ||= rg.truncated||total>output.rg_matches.length||[...perFile.values()].some(n=>n>=100);
   }catch(error){output.errors.push(error.message);}
   if(pattern&&!output.errors.length) {
-    // AST hits are scoped to files the query's rg search hit; no rg hits means no AST scope.
+    // AST hits are scoped to files the query's rg search hit; with no rg hits, search the whole repo (bounded by the output budget and limit).
     const files=[...perFile.keys()].slice(0,500);
-    output.ast_scope='rg_files';
+    output.ast_scope=files.length?'rg_files':'repo';
+    if(!files.length)files.push('.');
     if(perFile.size>files.length)output.truncated=true;
     if(files.length) {
       const ast=await execute('ast-grep',['run','-p',pattern,'--json=stream',...(lang?['-l',lang]:[]),'--',...files],{cwd,env});
@@ -221,13 +225,13 @@ const main = async () => {
   if (subcommand === 'query') {
     const concept = positional[1]
     if (!concept) {
-      process.stderr.write('Usage: cartographer.mjs query "<concept>" [--limit <n>] [--pattern <p>] [--lang <l>] [--regex]\n')
+      process.stderr.write('Usage: cartographer.mjs query "<concept>" [--limit <n> (default 50, max 100)] [--pattern <p>] [--lang <l>] [--regex]\n')
       process.exit(1)
     }
     const result = await query(concept, {
       cwd,
       repo: flags.repo,
-      limit: flags.limit ?? 5,
+      limit: flags.limit,
       pattern: flags.pattern,
       lang: flags.lang,
       regex: flags.regex,

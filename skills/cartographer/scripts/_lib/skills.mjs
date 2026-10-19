@@ -9,23 +9,32 @@ export function parseFrontmatter(text) {
   const lines = text.replace(/^\uFEFF/,'').replace(/\r\n/g,'\n').split('\n');
   if (lines[0] !== '---') throw new Error('Missing YAML frontmatter');
   const end = lines.indexOf('---',1); if(end < 0) throw new Error('Unterminated frontmatter');
-  const out = {};
+  const out = {}, seen = new Set();
+  const continued = i => i+1<end && /^\s+\S/.test(lines[i+1]);
   for(let i=1;i<end;i++) {
     if(!lines[i].trim() || lines[i].trimStart().startsWith('#')) continue;
-    const match = /^([A-Za-z_-]+):\s*(.*)$/.exec(lines[i]);
-    if(!match) { if(/^\s/.test(lines[i])) continue; throw new Error('Unsupported frontmatter syntax'); }
-    const [,key,raw] = match;
-    if(key!=='name' && key!=='description') { while(i+1<end && /^\s/.test(lines[i+1])) i++; continue; } if(Object.hasOwn(out,key)) throw new Error(`Duplicate key: ${key}`);
+    const match = /^([A-Za-z_][A-Za-z0-9_-]*):(?:\s+(.*))?$/.exec(lines[i]);
+    if(!match) throw new Error('Unsupported frontmatter syntax');
+    const [,key,raw=''] = match;
+    if(seen.has(key)) throw new Error(`Duplicate key: ${key}`); seen.add(key);
+    if(key!=='name' && key!=='description') { while(i+1<end && (/^\s/.test(lines[i+1]) || /^-(\s|$)/.test(lines[i+1]) || !lines[i+1].trim())) i++; continue; }
     let value=raw.trim();
     if(/^>[+-]?$/.test(value)) {
       const parts=[]; while(i+1<end && (/^\s/.test(lines[i+1]) || !lines[i+1])) parts.push(lines[++i].trim());
       value=parts.join(' ').trim();
-    } else if(value.startsWith('"')) { try { value=JSON.parse(value); } catch { throw new Error('Invalid quoted scalar'); } }
-    else if(value.startsWith("'")) { if(!/^'(?:[^']|'')*'$/.test(value)) throw new Error('Invalid quoted scalar'); value=value.slice(1,-1).replace(/''/g,"'"); }
-    else { if(/^[\[\]{}|&*!]/.test(value)) throw new Error('Only YAML scalar values are supported'); value=value.replace(/\s+#.*$/,'').trim(); }
+    } else if(value.startsWith('"')) { try { value=JSON.parse(value); } catch { throw new Error('Invalid quoted scalar'); } if(continued(i)) throw new Error('Unexpected indented text after quoted scalar'); }
+    else if(value.startsWith("'")) { if(!/^'(?:[^']|'')*'$/.test(value)) throw new Error('Invalid quoted scalar'); value=value.slice(1,-1).replace(/''/g,"'"); if(continued(i)) throw new Error('Unexpected indented text after quoted scalar'); }
+    else {
+      if(/^[\[\]{}|&*!]/.test(value)) throw new Error('Only YAML scalar values are supported');
+      value=value.replace(/\s+#.*$/,'').trim();
+      if(continued(i)) {
+        if(key==='name') throw new Error('Unexpected indented text after name');
+        const parts=[value]; while(continued(i)) parts.push(lines[++i].trim().replace(/\s+#.*$/,'')); value=parts.filter(Boolean).join(' ');
+      }
+    }
     if(typeof value !== 'string' || !value) throw new Error('Expected nonempty scalar'); out[key]=value;
   }
-  if(Object.keys(out).sort().join(',') !== 'description,name') throw new Error('Frontmatter requires name and description');
+  if(!out.name || !out.description) throw new Error('Frontmatter requires name and description');
   return out;
 }
 export function validateMetadata(meta, providerIds) {

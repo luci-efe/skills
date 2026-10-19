@@ -151,3 +151,13 @@ test('doctor names the settings file when it is malformed',async()=>{
   const r=cli('skills/doctor/scripts/doctor.mjs',['--install-hooks','claude'],cwd);
   assert.equal(r.status,2);assert.ok(r.stderr.includes('settings.local.json'),r.stderr);assert.equal(await readFile(path,'utf8'),'{bad json');
 });
+
+test('proof perf blocks as inconclusive on a sub-50ms baseline and rejects absurd max_ratio',async()=>{
+  const fast=[process.execPath,'-e','0'],cwd=await temp();
+  const go=async(id,max)=>{await writeFile(join(cwd,'checks.json'),JSON.stringify({checks:[{id:'base',argv:fast},{id:'changed',argv:fast}],required_checks:['base','changed'],perf:{baseline_check:'base',changed_check:'changed',max_ratio:max}}));return cli('skills/proof/scripts/run.mjs',['checks.json','--run-id',id,'--branch','perf'],cwd);};
+  const slowStart=await go('i1',5);
+  // a bare node start is usually under 50ms; core.test.mjs covers the verdict deterministically
+  const res=JSON.parse(slowStart.stdout);
+  if(res.perf.baseline_ms<50){assert.equal(res.status,'blocked');assert.match(res.reason,/inconclusive/);assert.equal(slowStart.status,2);}
+  assert.match((await go('i2',1000)).stderr,/max_ratio/);
+});

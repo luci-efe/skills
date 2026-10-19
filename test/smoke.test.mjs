@@ -54,6 +54,18 @@ test('compass routes representative prompts to the intended skill', () => {
   }
 });
 
+test('compass prefers an explicit verify request over a failure symptom and ignores incidental words', () => {
+  const stub = skills.map(s => ({ ...s, path: s.name, metadata: s.meta }));
+  assert.equal(candidates('verify the fix works, one test fails', stub)[0]?.name, 'proof');
+  assert.equal(candidates('the nightly build fails', stub)[0]?.name, 'reproduce');
+  for (const prompt of ['when done, commit', 'how it works', 'fail-safe design', 'it will fail eventually']) {
+    const got = candidates(prompt, stub).map(c => c.name);
+    assert.ok(!got.includes('proof') && !got.includes('reproduce'), `"${prompt}" -> ${got.join(',')}`);
+  }
+  assert.deepEqual(candidates('when done, commit', stub), []);
+  assert.deepEqual(candidates('how it works', stub), []);
+});
+
 test('red-team scan step creates its output directory', async () => {
   const text = skills.find(s => s.name === 'red-team').text;
   assert.match(text, /mkdir -p [^\n]*red-team[^\n]*osv-scanner scan/);

@@ -169,6 +169,15 @@ export const offer = (cpPath, o) => {
   name('receiver', o.to)
   const cp = readJson(cpPath)
   if (cp.sequence !== latestIn(dirname(dirname(resolve(cpPath))))) throw new Error(`checkpoint #${cp.sequence} is not the latest checkpoint in its lane; offer the latest one`)
+  // Never displace live work: refuse before anything is written.
+  if (cp.ownership?.phase === 'offered' && existsSync(join(dirname(resolve(cpPath)), 'ack.json'))) throw new Error(`checkpoint #${cp.sequence} was already acknowledged by ${cp.ownership.intended_receiver}; it cannot be offered again`)
+  const assignedPath = join(stateDirOf(o), 'assigned', `${o.to}.json`)
+  if (existsSync(assignedPath)) {
+    const cur = readJson(assignedPath)
+    const curDir = dirname(resolve(stateDirOf(o), cur.checkpoint))
+    const acked = existsSync(join(curDir, 'ack.json'))
+    if (acked || dirname(curDir) !== dirname(dirname(resolve(cpPath)))) throw new Error(`pane ${o.to} already has a ${acked ? 'live (acknowledged)' : 'pending'} assignment (${cur.checkpoint}); finish it or delete ${posix(relative(stateDirOf(o), assignedPath))} to release it`)
+  }
   const transfer_id = randomUUID()
   const body = Object.fromEntries(DRAFT_KEYS.filter((k) => k in cp).map((k) => [k, cp[k]]))
   const offered = publish(body, { ...o, runId: cp.run_id, pane: cp.pane, workspace: cp.workspace }, { owner: cp.pane, intended_receiver: o.to, transfer_id, phase: 'offered' })
@@ -176,7 +185,7 @@ export const offer = (cpPath, o) => {
   writeFile(path, `${JSON.stringify({ transfer_id, checkpoint: posix(relative(stateDirOf(o), offered.path)), checkpoint_sha256: offered.sha256, to: o.to, at: new Date().toISOString() }, null, 2)}\n`)
   // Assign at offer time so the receiver's inject works before ack; a superseded offer's assignment is withdrawn.
   const prev = cp.ownership?.phase === 'offered' ? cp.ownership.intended_receiver : null
-  if (prev && prev !== o.to) try { unlinkSync(join(stateDirOf(o), 'assigned', `${prev}.json`)) } catch {}
+  if (prev && prev !== o.to) try { if (readJson(join(stateDirOf(o), 'assigned', `${prev}.json`)).transfer_id === cp.ownership.transfer_id) unlinkSync(join(stateDirOf(o), 'assigned', `${prev}.json`)) } catch {}
   assign(o, o.to, posix(relative(stateDirOf(o), offered.path)), transfer_id)
   return { path, transfer_id, checkpoint: offered.path }
 }
