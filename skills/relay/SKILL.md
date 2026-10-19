@@ -16,17 +16,18 @@ Script: `node <this skill dir>/scripts/relay.mjs` (run with the repo root as cwd
 ## Decision tree
 
 **Receiving work?** (SessionStart showed a `[relay]` line, or you were told to take over)
-1. Run `relay.mjs read <checkpoint>` and read it.
-2. If the line says `STALE` → compare `git status` / `git log` against the checkpoint's `workspace` before acting. Record what changed.
+1. Run `relay.mjs read <checkpoint>` and read it. (After an offer, `inject` already works: the offer assigns you.)
+2. If `read` or `inject` prints `STALE` → compare `git status` / `git log` against the checkpoint's `workspace` before acting. Record what changed.
 3. If an `offer.json` names you and no `ack.json` exists → `relay.mjs ack <offer.json> --receiver <your-pane>`. Only after ack may you write.
+   `ack` still succeeds on a STALE workspace: it records `stale:true` and prints a STALE warning. Verifying is your job.
 4. If ack fails (`already acknowledged`, `intended for`, `digest mismatch`) → stop and report `blocked` with the exact error. Never work around it.
 
 **Handing off?**
 1. Stop editing. Commit or note the dirty state; the checkpoint digests it.
-2. Write a draft JSON with only: `task{objective,scope,constraints,acceptance_refs}`, `work_state`, `decisions` (≤5, each `accepted|proposed|rejected` with `source_ref`), `next_actions` (≤3, each with owner and expected artifact), `blockers`, `unknowns` (≤3 each), `evidence` (≤6 pointers, never pasted logs). Strings ≤240 chars. Need more? Put it in a file and point to it.
+2. Write a draft JSON with only: `task{objective,scope,constraints,acceptance_refs}`, `work_state`, `decisions` (≤5, each `accepted|proposed|rejected` with `source_ref`), `next_actions` (≤3, each with owner and expected artifact), `blockers`, `unknowns` (≤3 each), `evidence` (≤6 pointers, never pasted logs). Strings ≤240 chars. Required fields: `decisions[]{id,summary,source_ref,status}`, `next_actions[]{owner,action,artifact}`, `evidence[]` as objects `{kind,path,outcome}` (+ optional `digest`), `task{objective,scope}`. Need more? Put it in a file and point to it.
 3. `relay.mjs checkpoint --from draft.json --run <run-id> --pane <your-pane> --repo-id <owner/repo>`.
 4. `relay.mjs sync <handoff.json>` → stores accepted/rejected decisions in mnemosyne. If it fails, the checkpoint still stands: report `blocked: mnemosyne unavailable`.
-5. Receiver known? → `relay.mjs offer <handoff.json> --to <pane>`. This writes the next checkpoint with `phase: offered` plus `offer.json`, keeping the original workspace fingerprint so the receiver sees STALE if the code moved since. Then stop writing. Need a fresh pane? → read `references/herdr-launch.md`.
+5. Receiver known? → `relay.mjs offer <handoff.json> --to <pane>`. This writes the next checkpoint with `phase: offered`, `offer.json`, and `assigned/<pane>.json` (so the receiver's inject works before ack), keeping the original workspace fingerprint so the receiver sees STALE if the code moved since. Then stop writing. Need a fresh pane? → read `references/herdr-launch.md`.
 
 **Checkpointing without transfer?** (long task, protecting against a crash) → steps 2–4 only, `work_state: active`.
 
