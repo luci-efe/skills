@@ -153,26 +153,33 @@ export async function query(concept,{cwd=process.cwd(),env=process.env,repo,limi
   const output={...st,mode:'baseline',stale_overlay:false,missing_tools,rg_matches:[],ast_matches:[],truncated:false};
   if(missing_tools.length)return {...output,status:'blocked'};
   const rg=await execute('rg',['--json','--max-count','100',...(regex?[]:['--fixed-strings']),'--',concept,'.'],{cwd,env});
+  const perFile=new Map();
   try {
     if(rg.error||(!rg.truncated&&![0,1].includes(rg.code)))throw new Error(`rg: ${diagnostic(rg)}`);
-    const records=jsonLines(rg),perFile=new Map();
+    const records=jsonLines(rg);let total=0;
     for(const record of records)if(record.type==='match') {
       const data=record.data,file=data.path.text??Buffer.from(data.path.bytes,'base64').toString();
-      perFile.set(file,(perFile.get(file)??0)+1);
-      if(output.rg_matches.length<200)output.rg_matches.push({file:file.replace(/^\.\//,''),line:data.line_number,text:(data.lines.text??Buffer.from(data.lines.bytes,'base64').toString()).trim().slice(0,1000)});
-      else output.truncated=true;
+      perFile.set(file,(perFile.get(file)??0)+1);total++;
+      if(output.rg_matches.length<Math.min(limit,200))output.rg_matches.push({file:file.replace(/^\.\//,''),line:data.line_number,text:(data.lines.text??Buffer.from(data.lines.bytes,'base64').toString()).trim().slice(0,1000)});
     }
-    output.truncated ||= rg.truncated||[...perFile.values()].some(n=>n>=100);
+    output.truncated ||= rg.truncated||total>output.rg_matches.length||[...perFile.values()].some(n=>n>=100);
   }catch(error){output.errors.push(error.message);}
-  if(pattern) {
-    const ast=await execute('ast-grep',['run','-p',pattern,'--json=stream',...(lang?['-l',lang]:[]),'.'],{cwd,env});
-    try {
-      if(ast.error||(!ast.truncated&&![0,1].includes(ast.code)))throw new Error(`ast-grep: ${diagnostic(ast)}`);
-      const records=jsonLines(ast);output.ast_matches=records.slice(0,200).map(m=>({file:m.file.replace(/^\.\//,''),line:m.range.start.line+1,text:m.text.slice(0,1000)}));
-      output.truncated ||= ast.truncated||records.length>200;
-    }catch(error){output.errors.push(error.message);}
+  if(pattern&&!output.errors.length) {
+    // AST hits are scoped to files the query's rg search hit; no rg hits means no AST scope.
+    const files=[...perFile.keys()].slice(0,500);
+    output.ast_scope='rg_files';
+    if(perFile.size>files.length)output.truncated=true;
+    if(files.length) {
+      const ast=await execute('ast-grep',['run','-p',pattern,'--json=stream',...(lang?['-l',lang]:[]),'--',...files],{cwd,env});
+      try {
+        if(ast.error||(!ast.truncated&&![0,1].includes(ast.code)))throw new Error(`ast-grep: ${diagnostic(ast)}`);
+        if(/Pattern contains an ERROR node|Cannot parse|invalid pattern|multiple AST nodes/i.test(ast.stderr))throw new Error(`ast-grep: invalid pattern: ${ast.stderr.trim().split('\n')[0]}`);
+        const records=jsonLines(ast),cap=Math.min(limit,200);output.ast_matches=records.slice(0,cap).map(m=>({file:m.file.replace(/^\.\//,''),line:m.range.start.line+1,text:m.text.slice(0,1000)}));
+        output.truncated ||= ast.truncated||records.length>cap;
+      }catch(error){output.errors.push(error.message);}
+    }
   }
-  if(output.errors.length)output.status='blocked';
+  output.status=output.errors.length?'blocked':'ok';
   return output;
 }
 const parseCliArgs = (argv) => {

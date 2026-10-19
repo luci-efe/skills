@@ -111,3 +111,34 @@ test('advisory errors stay silent and record a local hook diagnostic',async()=>{
   const result=cli('hooks/claude/user-prompt-submit.mjs',[],cwd,{env:{...process.env,RAMOS_SKILL_ROOTS:root},input:JSON.stringify({cwd,prompt:'verify tests'})});assert.equal(result.status,0,result.stderr);assert.deepEqual(JSON.parse(result.stdout),{});
   assert.match(await readFile(join(cwd,STATE_DIR,'hooks.log'),'utf8'),/UserPromptSubmit.*ENOTDIR/);
 });
+test('proof rerun of an existing run id gives a clear error and exit 2',async()=>{
+  const cwd=await temp();await writeFile(join(cwd,'checks.json'),JSON.stringify({checks:[{id:'unit',argv:[process.execPath,'-e','0']}],required_checks:['unit']}));
+  assert.equal(cli('skills/proof/scripts/run.mjs',['checks.json','--run-id','dup'],cwd).status,0);
+  const again=cli('skills/proof/scripts/run.mjs',['checks.json','--run-id','dup'],cwd);
+  assert.equal(again.status,2);assert.match(again.stderr,/run id already exists: pick a new --run-id/);assert.doesNotMatch(again.stderr,/EEXIST/);
+});
+test('proof retains a log naming the missing binary',async()=>{
+  const cwd=await temp();await writeFile(join(cwd,'checks.json'),JSON.stringify({checks:[{id:'unit',argv:['ramos-nonexistent-command']}],required_checks:['unit']}));
+  assert.equal(cli('skills/proof/scripts/run.mjs',['checks.json','--run-id','gone'],cwd).status,2);
+  const log=await readFile(join(cwd,STATE_DIR,'runs/gone/checks/unit.log'),'utf8');assert.match(log,/ENOENT.*ramos-nonexistent-command/);
+  const result=JSON.parse(await readFile(join(cwd,STATE_DIR,'runs/gone/result.json'),'utf8'));assert.equal(result.checks[0].log,'checks/unit.log');
+});
+test('proof perf branch pairs baseline and changed checks against max_ratio',async()=>{
+  const sleep=ms=>[process.execPath,'-e',`setTimeout(()=>{},${ms})`];
+  const run=async(id,perf,changedMs)=>{
+    const cwd=await temp();await writeFile(join(cwd,'checks.json'),JSON.stringify({checks:[{id:'base',argv:sleep(100)},{id:'changed',argv:sleep(changedMs)}],required_checks:['base','changed'],...(perf?{perf}:{})}));
+    const r=cli('skills/proof/scripts/run.mjs',['checks.json','--run-id',id,'--branch','perf'],cwd);return {r,cwd};
+  };
+  const good=await run('p1',{baseline_check:'base',changed_check:'changed',max_ratio:5},100);
+  assert.equal(good.r.status,0,good.r.stderr+good.r.stdout);assert.equal(cli('skills/proof/scripts/check.mjs',['p1'],good.cwd).status,0);
+  const saved=JSON.parse(await readFile(join(good.cwd,STATE_DIR,'runs/p1/result.json'),'utf8'));assert.ok(saved.perf.ratio>0);
+  const slow=await run('p2',{baseline_check:'base',changed_check:'changed',max_ratio:1.5},1000);
+  assert.equal(slow.r.status,2);assert.match(JSON.parse(slow.r.stdout).reason,/Perf ratio/);
+  assert.equal(JSON.parse(slow.r.stdout).status,'failed');
+  assert.match((await run('p3',undefined,100)).r.stderr,/perf branch needs manifest\.perf/);
+  assert.match((await run('p4',{baseline_check:'base',changed_check:'nope',max_ratio:2},100)).r.stderr,/declared checks/);
+  assert.match((await run('p5',{baseline_check:'base',changed_check:'changed',max_ratio:-1},100)).r.stderr,/max_ratio/);
+  // tampering: raising the ratio past the threshold in a saved result is rejected by check.mjs
+  const p=join(good.cwd,STATE_DIR,'runs/p1/result.json');saved.perf.max_ratio=0.0001;await writeFile(p,JSON.stringify(saved));
+  assert.equal(cli('skills/proof/scripts/check.mjs',['p1'],good.cwd).status,2);
+});

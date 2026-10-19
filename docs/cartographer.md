@@ -14,6 +14,6 @@ node skills/cartographer/scripts/cartographer.mjs query "refund webhook"
 Nothing. Read-only; never runs `gitnexus analyze` for you.
 
 ## Notes
-Baseline mode is `rg` + `ast-grep`; a fresh GitNexus index upgrades it. AST hits are repo-wide pattern hits, not filtered by the query.
+Baseline mode is `rg` + `ast-grep`; a fresh GitNexus index upgrades it. `--limit` caps rg and AST matches (with `truncated`). AST hits are scoped to files the query's rg search hit. A malformed `--pattern` returns `status:"blocked"`; success returns `status:"ok"`.
 
 Full procedure: [`skills/cartographer/SKILL.md`](../skills/cartographer/SKILL.md).

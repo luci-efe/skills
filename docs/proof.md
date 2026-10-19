@@ -14,6 +14,6 @@ node skills/proof/scripts/check.mjs r1
 `<state>/runs/<run-id>/result.json` and logs. In Claude Code the Stop hook blocks a stale "done".
 
 ## Notes
-Local gate stops accidental false claims, not fabricated evidence; CI re-execution is the real proof. The `perf` branch is a label for now (no baseline pairing).
+Local gate stops accidental false claims, not fabricated evidence; CI re-execution is the real proof. The `perf` branch needs `perf:{baseline_check,changed_check,max_ratio}` in the manifest; the wall-clock ratio is recorded and enforced by `run.mjs` and `check.mjs`. Rerunning a run id exits 2 with a clear error.
 
 Full procedure: [`skills/proof/SKILL.md`](../skills/proof/SKILL.md).

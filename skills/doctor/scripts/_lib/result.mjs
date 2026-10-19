@@ -28,6 +28,12 @@ export async function validateResult(cwd,result,{runId}={}) {
     }
     if(!Array.isArray(result.artifacts))throw new Error('Invalid artifacts');
     for(const path of result.artifacts) {if(typeof path!=='string')throw new Error('Invalid artifact path');await readFile(inside(dir,path));}
+    if(result.branch==='perf') {
+      const p=result.perf,base=result.checks.find(c=>c.id===p?.baseline_check),changed=result.checks.find(c=>c.id===p?.changed_check);
+      if(!base||!changed||!result.required_checks.includes(base.id)||!result.required_checks.includes(changed.id)||!(p.max_ratio>0))throw new Error('Perf result needs baseline/changed required checks and max_ratio');
+      const ratio=(Date.parse(changed.ended_at)-Date.parse(changed.started_at))/Math.max(1,Date.parse(base.ended_at)-Date.parse(base.started_at));
+      if(!(ratio<=p.max_ratio))throw new Error(`Perf ratio ${ratio.toFixed(2)} exceeds max_ratio ${p.max_ratio}`);
+    }
     const current=await inputDigest(cwd);
     if(current.head!==result.source?.head||current.input_digest!==result.source?.input_digest)throw new Error('Evidence is stale: source inputs changed');
     return {ok:true,reason:null};
