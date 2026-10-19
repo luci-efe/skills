@@ -5,7 +5,7 @@ import { discoverSkills } from './skills.mjs';
 import { probe } from './probe.mjs';
 const intents = [
   ['doctor','orient',/\b(install|setup|doctor|missing (?:binary|tool|dependenc\w*))\b/i,'check installation and prerequisites'],
-  ['reproduce','build',/\b(bug|regression|reproduce|failing|broken|debug)\b/i,'isolate failing behavior'],
+  ['reproduce','build',/\b(bug|regression|reproduce|fail|fails|failed|failing|flaky|intermittent(?:ly)?|broken|debug)\b/i,'isolate failing behavior'],
   ['red-team','prove',/\b(cve|vulnerab\w*|exploit|security audit|advisor(?:y|ies))\b/i,'investigate security exposure'],
   ['relay','continue',/\b(handoff|hand off|continue session|context window|resume)\b/i,'continue from a checkpoint'],
   ['council','decide',/\b(council|debate|independent review|second opinion)\b/i,'review an artifact independently'],
@@ -43,7 +43,7 @@ export async function route(prompt,{cwd=process.cwd(),skills,branch,skill,probeF
   if(options.filter(s=>s.name===selected.name).length>1)return {status:'ambiguous',candidates:options,selected:null,reason:'Duplicate skill name; use --skill with its absolute SKILL.md path'};
   if(selected.dependency_status!=='declared')return {status:selected.dependency_status,candidates:options,selected,reason:selected.error??'Read third-party preflight; dependencies are undeclared'};
   const chosen=branch?selected.metadata.branches.find(b=>b.id===branch):selected.metadata.branches[0];
-  if(!chosen)return {status:'blocked',candidates:options,selected,reason:'Unknown branch'};
+  if(!chosen)return {status:'blocked',candidates:options,selected,reason:`Unknown branch ${branch}; to pick a skill use --skill <path to SKILL.md> (branches of ${selected.name}: ${selected.metadata.branches.map(b=>b.id).join(', ')})`};
   const prerequisites=await probeFn(chosen.requires,{cwd});
   return {status:prerequisites.every(p=>p.ok)?'ready':'blocked',candidates:options.map(s=>({name:s.name,path:s.path,reason:s.reason})),selected:{name:selected.name,path:selected.path},branch:chosen.id,entrypoint:inside(dirname(selected.path),chosen.entrypoint),prerequisites,reason:selected.reason,artifact_schema:chosen.artifact_schema};
 }

@@ -61,6 +61,8 @@ test('router limits candidates, probes selection, and nudge stays advisory and o
   const receipt=await route('verify the tests',{cwd,skills,probeFn:async ids=>{called=true;return [];}});assert.equal(called,true);assert.equal(receipt.selected.name,'proof');assert.equal(receipt.status,'ready');assert.ok(receipt.candidates.length<=3);
   const blocked=await route('/proof',{cwd,skills,probeFn:async()=>[{id:'node',ok:false,missing_install:'install node'}]});assert.equal(blocked.status,'blocked');
   assert.match(nudge('verify tests',skills),/^compass: consider \/proof/);assert.equal(nudge('hello there',skills),'');assert.equal(nudge('verify\ntests',skills).split('\n').length,1);
+  for(const p of ['the checkout test fails intermittently','the build failed','a flaky test','tests fail on CI'])assert.equal((await route(p,{cwd,skills,probeFn:async()=>[]})).selected.name,'reproduce',p);
+  const unknown=await route('verify the tests',{cwd,skills,branch:'red-team',probeFn:async()=>[]});assert.equal(unknown.status,'blocked');assert.match(unknown.reason,/Unknown branch red-team; to pick a skill use --skill/);
 });
 test('result validation rejects stale, empty checks and failed required checks',async()=>{
   const cwd=await temp();await writeFile(join(cwd,'source'),'one');const result=await evidence(cwd);await writeResult(cwd,result);assert.equal((await validateResult(cwd,result)).ok,true);

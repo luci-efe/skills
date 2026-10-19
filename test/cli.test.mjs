@@ -141,4 +141,13 @@ test('proof perf branch pairs baseline and changed checks against max_ratio',asy
   // tampering: raising the ratio past the threshold in a saved result is rejected by check.mjs
   const p=join(good.cwd,STATE_DIR,'runs/p1/result.json');saved.perf.max_ratio=0.0001;await writeFile(p,JSON.stringify(saved));
   assert.equal(cli('skills/proof/scripts/check.mjs',['p1'],good.cwd).status,2);
+  // a hand-edited ratio is rejected even when it would still pass max_ratio
+  saved.perf.max_ratio=5;saved.perf.ratio=0.01;await writeFile(p,JSON.stringify(saved));
+  const forged=cli('skills/proof/scripts/check.mjs',['p1'],good.cwd);assert.equal(forged.status,2);assert.match(forged.stdout,/does not match check timestamps/);
+});
+
+test('doctor names the settings file when it is malformed',async()=>{
+  const cwd=await temp();await mkdir(join(cwd,'.claude'),{recursive:true});const path=join(cwd,'.claude/settings.local.json');await writeFile(path,'{bad json');
+  const r=cli('skills/doctor/scripts/doctor.mjs',['--install-hooks','claude'],cwd);
+  assert.equal(r.status,2);assert.ok(r.stderr.includes('settings.local.json'),r.stderr);assert.equal(await readFile(path,'utf8'),'{bad json');
 });
