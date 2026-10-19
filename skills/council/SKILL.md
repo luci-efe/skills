@@ -7,7 +7,7 @@ description: Use when a consequential decision or artifact (architecture plan, s
 
 Several model families review **one artifact** in bounded rounds, talking through files and Herdr panes, never through the human's clipboard.
 
-Script: `node <this skill dir>/scripts/council.mjs` (`<this skill dir>` = where this SKILL.md is installed). Seat transport: `references/herdr-seats.md`.
+Script: `node <this skill dir>/scripts/council.mjs` (`<this skill dir>` = where this SKILL.md is installed). Seat transport: `references/herdr-seats.md`. There is no `--state-dir` flag: runs live under `$RAMOS_STATE_DIR/council/` (default `.ramos/`), so export `RAMOS_STATE_DIR` before every call. `init` prints a realpath.
 
 ## Preflight (hard)
 - An artifact file exists: a plan, spec, diff (`git diff > .ramos/council/review.diff`), or a one-page problem statement. No artifact → write the problem statement first, or stop. A council without an artifact doesn't start.
@@ -17,9 +17,9 @@ Script: `node <this skill dir>/scripts/council.mjs` (`<this skill dir>` = where 
 ## Decision tree
 1. `council.mjs init --artifact <file> --seats claude,codex,agy` → prints `run_id` and the run dir with `round1.prompt.md` and `round2.prompt.md`.
 2. Seats: are the panes already running? → reuse them. Otherwise → start them per `references/herdr-seats.md`. You (the chair) are a seat too. Write your round 1 file before reading anyone else's.
-3. Send each seat: `Read <dir>/round1.prompt.md and follow it exactly.` (send-text, then Enter, then re-read the pane to confirm it submitted).
+3. Send each seat: `Please read the file <dir>/round1.prompt.md and follow it exactly. You are seat <s>.` (send-text, then Enter, then re-read the pane to confirm it submitted; Codex needs the "Please read the file" wording and swallows the first Enter).
 4. Poll `council.mjs status --dir <dir>`. Only files ending with the exact completion marker count.
-   - A seat is rate-limited, crashed, or silent past a deadline you set → `council.mjs missing --dir <dir> --round 1 --seat <s> --reason "<why>"`. Continue with the others. Never wait forever, and never pretend it answered.
+   - A seat is rate-limited, crashed, or silent past a deadline you set → `council.mjs missing --dir <dir> --round 1 --seat <s> --reason "<why>"`. Continue with the others; `missing` regenerates the prompts without that seat, so record it before sending them when you can. Never wait forever, and never pretend it answered.
    - Each round needs **at least 2 completed reviews**. If fewer can finish, seat a replacement from another family, or stop and report `blocked`. Recording missing seats alone never completes a council.
 5. Round 1 closed → send `round2.prompt.md` (cross-examination). Assign lenses that make seats disagree productively: one attacks complexity and brittleness, one attacks cost and verification, one defends usability.
 6. Round 2 closed → the chair writes `<dir>/SYNTHESIS.md`:

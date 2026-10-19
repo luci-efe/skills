@@ -31,7 +31,8 @@ export async function validateResult(cwd,result,{runId}={}) {
     if(result.branch==='perf') {
       const p=result.perf,base=result.checks.find(c=>c.id===p?.baseline_check),changed=result.checks.find(c=>c.id===p?.changed_check);
       if(!base||!changed||!result.required_checks.includes(base.id)||!result.required_checks.includes(changed.id)||!(p.max_ratio>0))throw new Error('Perf result needs baseline/changed required checks and max_ratio');
-      const ratio=(Date.parse(changed.ended_at)-Date.parse(changed.started_at))/Math.max(1,Date.parse(base.ended_at)-Date.parse(base.started_at));
+      const baseMs=Math.max(1,Date.parse(base.ended_at)-Date.parse(base.started_at)),changedMs=Date.parse(changed.ended_at)-Date.parse(changed.started_at),ratio=changedMs/baseMs;
+      if(p.baseline_ms!==baseMs||p.changed_ms!==changedMs||!(Math.abs(p.ratio-ratio)<1e-9))throw new Error(`Perf record does not match check timestamps (recorded ratio ${p.ratio}, recomputed ${ratio.toFixed(2)})`);
       if(!(ratio<=p.max_ratio))throw new Error(`Perf ratio ${ratio.toFixed(2)} exceeds max_ratio ${p.max_ratio}`);
     }
     const current=await inputDigest(cwd);

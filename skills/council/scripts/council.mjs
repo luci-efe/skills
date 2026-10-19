@@ -26,19 +26,23 @@ const saveRun = (dir, run) => { const p = join(dir, 'council.json'); const tmp =
 const lastLine = (text) => text.trimEnd().split('\n').pop().trim()
 const marker = (run, seat, round) => `<!-- council:done run=${run} seat=${seat} round=${round} -->`
 
-const prompt = (run, round, artifact, seats) => {
+const prompt = (run, round, artifact, seats = run.seats) => {
+  const gone = (r, s) => run.missing[`${r}:${s}`]
+  const live = seats.filter((s) => !gone(round, s))
+  const absent = seats.filter((s) => gone(round, s))
+  const prior = seats.filter((s) => !gone(1, s))
   const lens = round === 1
     ? 'Review the artifact independently. Do not read other seats\' files. Report defects with file/line or section evidence, risks, and a recommendation.'
-    : 'Read every other seat\'s round 1 file. Attack positions with cited evidence, concede explicitly where they are right, and list questions only the human can answer.'
+    : `Read every other seat's round 1 file (${prior.map((s) => run.outputs[1][s]).join(', ')}). Attack positions with cited evidence, concede explicitly where they are right, and list questions only the human can answer.`
   return `# Council ${run.run_id}, round ${round}
 
 Artifact under review: \`${artifact}\`
-Seats: ${seats.join(', ')}
-
+Seats: ${live.join(', ')}
+${absent.length ? `Missing this round (no file will exist, do not wait for them): ${absent.map((s) => `${s} (${gone(round, s)})`).join('; ')}\n` : ''}
 ${lens}
 
 Write only your own file:
-${seats.map((s) => `- ${s}: \`${run.outputs[round][s]}\``).join('\n')}
+${live.map((s) => `- ${s}: \`${run.outputs[round][s]}\``).join('\n')}
 
 End your file with this exact line (substitute your seat):
 ${marker(run.run_id, '<seat>', round)}
@@ -79,6 +83,7 @@ const markMissingUnlocked = ({ dir, round, seat, reason }) => {
   if (!reason || !String(reason).trim()) throw new Error('a non-empty --reason is required')
   run.missing[`${round}:${seat}`] = String(reason).trim()
   saveRun(dir, run)
+  for (let r = 1; r <= run.max_rounds; r++) writeFileSync(join(dir, `round${r}.prompt.md`), prompt(run, r, run.artifact))
 }
 
 export const status = ({ dir }) => {
