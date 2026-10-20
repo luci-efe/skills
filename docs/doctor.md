@@ -17,4 +17,6 @@ Nothing, except `settings.local.json` when you run `--install-hooks` (merge only
 ## Notes
 Exit 2 if any requested provider is missing. A binary on PATH does not prove auth or services work.
 
+Example run: [`examples/doctor.md`](../examples/doctor.md)
+
 Full procedure: [`skills/doctor/SKILL.md`](../skills/doctor/SKILL.md).

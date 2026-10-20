@@ -15,4 +15,6 @@ Pressure-tests an underspecified change: read the code first, ask only what it c
 ## Notes
 No scripts; pure procedure. Needs `rg`.
 
+Example run: [`examples/crucible.md`](../examples/crucible.md)
+
 Full procedure: [`skills/crucible/SKILL.md`](../skills/crucible/SKILL.md).

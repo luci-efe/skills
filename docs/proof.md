@@ -16,4 +16,6 @@ node skills/proof/scripts/check.mjs r1
 ## Notes
 Local gate stops accidental false claims, not fabricated evidence; CI re-execution is the real proof. The `perf` branch needs `perf:{baseline_check,changed_check,max_ratio}` in the manifest; the wall-clock ratio is recorded and enforced by `run.mjs` and `check.mjs`. Rerunning a run id exits 2 with a clear error.
 
+Example run: [`examples/proof.md`](../examples/proof.md)
+
 Full procedure: [`skills/proof/SKILL.md`](../skills/proof/SKILL.md).

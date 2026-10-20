@@ -15,4 +15,6 @@ A committed regression test; bisect logs under the state dir (`reproduce/bisect.
 ## Notes
 `references/bisect.md` bisects in an isolated worktree, for regressions or (with `--term-old/--term-new`) fixes. Needs `git`.
 
+Example run: [`examples/reproduce.md`](../examples/reproduce.md)
+
 Full procedure: [`skills/reproduce/SKILL.md`](../skills/reproduce/SKILL.md).

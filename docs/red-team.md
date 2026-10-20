@@ -15,4 +15,6 @@ mkdir -p .ramos/red-team && osv-scanner scan source -r --format json --output-fi
 ## Notes
 Needs `osv-scanner` ≥2; `rg`/`ast-grep` for triage, `gh` for Dependabot enrichment. Exit 128 means "nothing scannable", never "clean". Local checkouts only.
 
+Example run: [`examples/red-team.md`](../examples/red-team.md)
+
 Full procedure: [`skills/red-team/SKILL.md`](../skills/red-team/SKILL.md).

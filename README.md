@@ -71,7 +71,7 @@ npm test                 # node --test
 npm run lint:skills      # frontmatter, size, skill.json schema
 npm run check:vendor     # shared lib copies match lib/
 ```
-Docs: [per-skill pages and memory](docs/README.md) · Contracts: [`docs/CONTRACTS.md`](docs/CONTRACTS.md).
+Docs: [per-skill pages and memory](docs/README.md) · [Worked examples](examples/README.md) · Contracts: [`docs/CONTRACTS.md`](docs/CONTRACTS.md).
 
 ---
 

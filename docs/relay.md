@@ -17,4 +17,6 @@ node skills/relay/scripts/relay.mjs offer handoff.json --to p2
 ## Notes
 Checkpoints are immutable; correct by writing the next sequence. No secrets, transcripts or source in checkpoints.
 
+Example run: [`examples/relay.md`](../examples/relay.md)
+
 Full procedure: [`skills/relay/SKILL.md`](../skills/relay/SKILL.md).

@@ -70,3 +70,16 @@ test('red-team scan step creates its output directory', async () => {
   const text = skills.find(s => s.name === 'red-team').text;
   assert.match(text, /mkdir -p [^\n]*red-team[^\n]*osv-scanner scan/);
 });
+
+test('every skill has a worked example and examples are sanitized', async () => {
+  for (const s of skills) {
+    const text = await readFile(new URL(`../examples/${s.name}.md`, import.meta.url), 'utf8');
+    assert.ok(text.trim().length > 0, `examples/${s.name}.md is empty`);
+    assert.ok(!text.includes('/Users/'), `examples/${s.name}.md contains /Users/`);
+    assert.ok(!/(^|[\s"'(=])\/(private\/)?tmp\//.test(text), `examples/${s.name}.md contains a /tmp path`);
+    assert.ok(!/[\w.-]+@[\w-]+\.[a-z]{2,}/i.test(text), `examples/${s.name}.md contains an email`);
+    const doc = await readFile(new URL(`../docs/${s.name}.md`, import.meta.url), 'utf8');
+    assert.ok(doc.includes(`../examples/${s.name}.md`), `docs/${s.name}.md does not link its example`);
+  }
+  await readFile(new URL('../examples/README.md', import.meta.url), 'utf8');
+});

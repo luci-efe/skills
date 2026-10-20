@@ -14,4 +14,6 @@ One short page per skill. Install and overview live in the [root README](../READ
 | [/red-team](red-team.md) | Checks known-vulnerability exposure and separates affected, suspected, confirmed and unknown. |
 | [/relay](relay.md) | Hands work to a fresh session or another agent as an immutable checkpoint plus durable decisions. |
 
+Worked, real-output examples for every skill: [../examples/](../examples/README.md).
+
 See also [memory.md](memory.md) for how checkpoints and mnemosyne fit together.

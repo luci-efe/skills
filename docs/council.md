@@ -16,4 +16,6 @@ node skills/council/scripts/council.mjs status --dir <run-dir>
 ## Notes
 Needs `herdr` with `HERDR_ENV=1` and 2+ harness families. At least 2 completed reviews per round or it reports `blocked`.
 
+Example run: [`examples/council.md`](../examples/council.md)
+
 Full procedure: [`skills/council/SKILL.md`](../skills/council/SKILL.md).

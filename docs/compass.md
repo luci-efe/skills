@@ -17,4 +17,6 @@ Session registry and the discovery index in the state dir.
 ## Notes
 Routing is keyword-based; name the skill (`/red-team`) to skip it. Third-party skills with extra frontmatter keys are indexed fine.
 
+Example run: [`examples/compass.md`](../examples/compass.md)
+
 Full procedure: [`skills/compass/SKILL.md`](../skills/compass/SKILL.md).
