@@ -28,6 +28,21 @@ test('doctor dry-run preserves settings; install is idempotent and keeps unrelat
   for(let i=0;i<2;i++){const r=cli('skills/doctor/scripts/doctor.mjs',['--install-hooks','claude'],cwd);assert.equal(r.status,0,r.stderr);}
   const installed=JSON.parse(await readFile(path));assert.deepEqual(installed.permissions,initial.permissions);assert.equal(installed.hooks.Stop.length,2);assert.equal(installed.hooks.UserPromptSubmit.length,1);
 });
+test('codex and gemini hook installs are idempotent and gate a stale done with each harness verdict',async()=>{
+  const cwd=await temp();const env={...process.env,RAMOS_STATE_DIR:STATE_DIR};
+  for(const [harness,file,event,key] of [['codex','.codex/hooks.json','Stop','block'],['gemini','.gemini/settings.json','AfterAgent','deny']]) {
+    const dry=cli('skills/doctor/scripts/doctor.mjs',['--install-hooks',harness,'--dry-run'],cwd);assert.equal(dry.status,0,dry.stderr);await assert.rejects(readFile(join(cwd,file)));
+    for(let i=0;i<2;i++){const r=cli('skills/doctor/scripts/doctor.mjs',['--install-hooks',harness],cwd);assert.equal(r.status,0,r.stderr);}
+    const settings=JSON.parse(await readFile(join(cwd,file)));assert.deepEqual(Object.keys(settings.hooks),[event]);assert.equal(settings.hooks[event].length,1);
+    const command=settings.hooks[event][0].hooks[0].command;assert.match(command,new RegExp(` ${event}( |$)`));
+    // Fake a claimed-done run whose evidence is missing: the harness-specific verdict must refuse the stop.
+    await mkdir(join(cwd,STATE_DIR),{recursive:true});await writeFile(join(cwd,STATE_DIR,'active.json'),JSON.stringify({sessions:{[`${harness}-s`]:{run_id:'ghost',claimed_done:true}}}));
+    const verdict=JSON.parse(cli('hooks/claude/stop.mjs',[],cwd,{env,input:JSON.stringify({cwd,session_id:`${harness}-s`})}).stdout);assert.equal(verdict.decision,'block');
+    const adapter=spawnSync(process.execPath,['lib/hook-adapter.mjs',event],{cwd:repo,env,input:JSON.stringify({cwd,session_id:`${harness}-s`}),encoding:'utf8'});
+    assert.equal(JSON.parse(adapter.stdout).decision,key);
+  }
+  assert.notEqual(cli('skills/doctor/scripts/doctor.mjs',['--install-hooks','nope'],cwd).status,0);
+});
 test('selective proof copy works without the source lib',async()=>{
   const cwd=await temp(), installed=join(cwd,'installed proof');await cp(join(repo,'skills/proof'),installed,{recursive:true});
   const r=spawnSync(process.execPath,[join(installed,'scripts/check.mjs'),'missing'],{cwd,encoding:'utf8'});assert.equal(r.status,2);assert.doesNotMatch(r.stderr,/ERR_MODULE_NOT_FOUND/);

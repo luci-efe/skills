@@ -18,3 +18,4 @@ export function workspaceRoot(cwd=process.cwd()) {
   return cwd;
 }
 export function stateDirectory(cwd=process.cwd()) {return canonical(resolve(workspaceRoot(cwd),STATE_DIR));}
+export function sessionId(env=process.env) {return env.CLAUDE_CODE_SESSION_ID??env.RAMOS_SESSION_ID??env.CLAUDE_SESSION_ID??env.CODEX_THREAD_ID??env.GEMINI_SESSION_ID;}

@@ -12,6 +12,7 @@ const collection=resolve(adapterDir,basename(adapterDir)==='_lib'?'../../..':'..
 export async function handleHook(event,input,options={}) {
   const cwd=input.cwd??process.cwd();
   if(event==='Stop')return stop(input);
+  if(event==='AfterAgent') {const verdict=await stop(input);return verdict.decision==='block'?{...verdict,decision:'deny'}:verdict;}
   const roots=options.roots??[...skillRoots(cwd),resolve(cwd,'skills'),options.skillRoot??collection];
   if(event==='UserPromptSubmit')return additionalContext(event,nudge(input.prompt??'',await discoverSkills({cwd,roots})));
   if(event==='SessionStart') {
@@ -38,7 +39,7 @@ export async function main(event,skillRoot) {
   let input={};
   try {input=await hookInput();console.log(JSON.stringify(await handleHook(event,input,{skillRoot})));}
   catch(error){
-    if(event==='Stop')console.log(JSON.stringify({decision:'block',reason:`/proof: ${error.message}`}));
+    if(event==='Stop'||event==='AfterAgent')console.log(JSON.stringify({decision:event==='Stop'?'block':'deny',reason:`/proof: ${error.message}`}));
     else {await logAdvisory(input.cwd??process.cwd(),event,error);console.log('{}');}
   }
 }

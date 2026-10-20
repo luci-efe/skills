@@ -8,11 +8,11 @@ Check that the suite's tools are installed and wire the Claude hooks.
 ```sh
 node skills/doctor/scripts/doctor.mjs            # matrix of every provider
 node skills/doctor/scripts/doctor.mjs rg ast-grep --json
-node skills/doctor/scripts/doctor.mjs --install-hooks claude --dry-run
+node skills/doctor/scripts/doctor.mjs --install-hooks claude --dry-run   # or codex, gemini
 ```
 
 ## Writes
-Nothing, except `settings.local.json` when you run `--install-hooks` (merge only; a malformed file is left untouched).
+Nothing, except the harness settings file (`.claude/settings.local.json`, `.codex/hooks.json` or `.gemini/settings.json`) when you run `--install-hooks` (merge only; a malformed file is left untouched).
 
 ## Notes
 Exit 2 if any requested provider is missing. A binary on PATH does not prove auth or services work.
