@@ -98,3 +98,17 @@ test('concurrent missing calls do not lose updates', async () => {
   assert.deepEqual(codes, seats.map(() => 0))
   assert.equal(Object.keys(JSON.parse(readFileSync(join(r.dir, 'council.json'), 'utf8')).missing).length, 6)
 })
+
+test('recording a seat missing regenerates the prompts without it', () => {
+  const o = setup()
+  const r = init({ ...o, artifact: join(o.cwd, 'plan.md'), seats: ['claude', 'codex', 'agy'] })
+  assert.match(readFileSync(join(r.dir, 'round1.prompt.md'), 'utf8'), /round1\.agy\.md/)
+  markMissing({ dir: r.dir, round: '1', seat: 'agy', reason: 'out of quota' })
+  markMissing({ dir: r.dir, round: '2', seat: 'agy', reason: 'out of quota' })
+  for (const n of [1, 2]) {
+    const p = readFileSync(join(r.dir, `round${n}.prompt.md`), 'utf8')
+    assert.doesNotMatch(p, /round\d\.agy\.md/)
+    assert.match(p, /Missing this round.*agy \(out of quota\)/)
+    assert.match(p, /round2\.codex\.md|round1\.codex\.md/)
+  }
+})

@@ -29,6 +29,14 @@ jobs:
         run: |
           npm install --global @ast-grep/cli@0.51.0
           echo "$(npm root -g)/@ast-grep/cli" >> "$GITHUB_PATH"
+      - name: Install ripgrep for baseline cartographer tests
+        shell: bash
+        run: |
+          case "$RUNNER_OS" in
+            Linux) sudo apt-get install -y ripgrep ;;
+            macOS) brew install ripgrep ;;
+            Windows) choco install ripgrep -y ;;
+          esac
       - name: Test with required relay memory coverage
         shell: bash
         run: |

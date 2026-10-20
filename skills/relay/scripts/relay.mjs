@@ -79,6 +79,7 @@ export const validate = (cp) => {
   return e
 }
 
+const isStale = (w, cp) => (w ? w.head !== cp.workspace.head || w.input_digest !== cp.workspace.input_digest : null)
 const lane = (o, runId, pane) => join(stateDirOf(o), 'runs', name('run id', runId), name('pane', pane), 'checkpoints')
 const latestIn = (dir) => Math.max(0, ...seqsIn(dir).filter((n) => existsSync(join(dir, String(n), 'handoff.json'))))
 const seqsIn = (dir) => (existsSync(dir) ? readdirSync(dir).filter((n) => /^\d+$/.test(n)).map(Number) : [])
@@ -161,15 +162,31 @@ export const checkpoint = (draftIn, o) => {
   return publish(draftIn, o)
 }
 
+const assign = (o, receiver, checkpoint, transfer_id) =>
+  writeFile(join(stateDirOf(o), 'assigned', `${receiver}.json`), `${JSON.stringify({ receiver, checkpoint, transfer_id }, null, 2)}\n`, { exclusive: false })
+
 export const offer = (cpPath, o) => {
   name('receiver', o.to)
   const cp = readJson(cpPath)
   if (cp.sequence !== latestIn(dirname(dirname(resolve(cpPath))))) throw new Error(`checkpoint #${cp.sequence} is not the latest checkpoint in its lane; offer the latest one`)
+  // Never displace live work: refuse before anything is written.
+  if (cp.ownership?.phase === 'offered' && existsSync(join(dirname(resolve(cpPath)), 'ack.json'))) throw new Error(`checkpoint #${cp.sequence} was already acknowledged by ${cp.ownership.intended_receiver}; it cannot be offered again`)
+  const assignedPath = join(stateDirOf(o), 'assigned', `${o.to}.json`)
+  if (existsSync(assignedPath)) {
+    const cur = readJson(assignedPath)
+    const curDir = dirname(resolve(stateDirOf(o), cur.checkpoint))
+    const acked = existsSync(join(curDir, 'ack.json'))
+    if (acked || dirname(curDir) !== dirname(dirname(resolve(cpPath)))) throw new Error(`pane ${o.to} already has a ${acked ? 'live (acknowledged)' : 'pending'} assignment (${cur.checkpoint}); finish it or delete ${posix(relative(stateDirOf(o), assignedPath))} to release it`)
+  }
   const transfer_id = randomUUID()
   const body = Object.fromEntries(DRAFT_KEYS.filter((k) => k in cp).map((k) => [k, cp[k]]))
   const offered = publish(body, { ...o, runId: cp.run_id, pane: cp.pane, workspace: cp.workspace }, { owner: cp.pane, intended_receiver: o.to, transfer_id, phase: 'offered' })
   const path = join(offered.dir, 'offer.json')
   writeFile(path, `${JSON.stringify({ transfer_id, checkpoint: posix(relative(stateDirOf(o), offered.path)), checkpoint_sha256: offered.sha256, to: o.to, at: new Date().toISOString() }, null, 2)}\n`)
+  // Assign at offer time so the receiver's inject works before ack; a superseded offer's assignment is withdrawn.
+  const prev = cp.ownership?.phase === 'offered' ? cp.ownership.intended_receiver : null
+  if (prev && prev !== o.to) try { if (readJson(join(stateDirOf(o), 'assigned', `${prev}.json`)).transfer_id === cp.ownership.transfer_id) unlinkSync(join(stateDirOf(o), 'assigned', `${prev}.json`)) } catch {}
+  assign(o, o.to, posix(relative(stateDirOf(o), offered.path)), transfer_id)
   return { path, transfer_id, checkpoint: offered.path }
 }
 
@@ -183,15 +200,15 @@ export const ack = (offerPath, o) => {
   const own = cp.ownership ?? {}
   if (own.phase !== 'offered' || own.transfer_id !== off.transfer_id || own.intended_receiver !== off.to) throw new Error('offer does not match its checkpoint (phase, transfer_id or receiver differ)')
   if (cp.sequence !== latestIn(dirname(dirname(cpPath)))) throw new Error(`offer ${off.transfer_id} was superseded by a newer checkpoint in this lane`)
-  const stale = o.workspace ? o.workspace.head !== cp.workspace.head || o.workspace.input_digest !== cp.workspace.input_digest : null
+  const stale = isStale(o.workspace, cp)
   const ackPath = join(dirname(offerPath), 'ack.json')
   const record = { transfer_id: off.transfer_id, checkpoint_sha256: off.checkpoint_sha256, receiver: o.receiver, stale, stale_reason: o.workspace ? null : (o.workspaceError ?? 'workspace unavailable'), at: new Date().toISOString() }
   try { writeFile(ackPath, `${JSON.stringify(record, null, 2)}\n`) } catch (e) {
     if (/refusing to overwrite/.test(e.message)) throw new Error(`transfer ${off.transfer_id} already acknowledged by ${readJson(ackPath).receiver}`)
     throw e
   }
-  writeFile(join(stateDirOf(o), 'assigned', `${o.receiver}.json`), `${JSON.stringify({ receiver: o.receiver, checkpoint: off.checkpoint, transfer_id: off.transfer_id }, null, 2)}\n`, { exclusive: false })
-  return { path: ackPath, stale }
+  assign(o, o.receiver, off.checkpoint, off.transfer_id)
+  return { path: ackPath, stale, ...(stale ? { warning: 'STALE: workspace changed since checkpoint; verify git status/log against the checkpoint before acting' } : {}) }
 }
 
 const clip = (s, bytes) => {
@@ -242,11 +259,11 @@ export const inject = (o) => {
   return total
 }
 
-export const read = (cpPath) => {
+export const read = (cpPath, o = {}) => {
   const body = readFileSync(cpPath)
   const md = readFileSync(join(dirname(cpPath), 'HANDOFF.md'), 'utf8')
   const expected = render(JSON.parse(body), sha(body))
-  return { ok: md === expected, markdown: expected }
+  return { ok: md === expected, markdown: expected, stale: isStale(o.workspace, JSON.parse(body)) }
 }
 
 export const sync = (cpPath, o) => {
@@ -303,12 +320,16 @@ const main = async (argv) => {
       console.log(JSON.stringify(checkpoint(readJson(need(flags.from, '--from <draft.json>')), { ...o, runId: need(flags.run, '--run'), pane: need(flags.pane, '--pane'), ...w }))); break
     }
     case 'offer': console.log(JSON.stringify(offer(need(pos[0], '<handoff.json>'), { ...o, to: need(flags.to, '--to'), ...(await ws()) }))); break
-    case 'ack': console.log(JSON.stringify(ack(need(pos[0], '<offer.json>'), { ...o, receiver: need(flags.receiver, '--receiver'), ...(await ws()) }))); break
+    case 'ack': {
+      const r = ack(need(pos[0], '<offer.json>'), { ...o, receiver: need(flags.receiver, '--receiver'), ...(await ws()) })
+      console.log(JSON.stringify(r)); if (r.stale) console.error(`relay: ${r.warning}`); break
+    }
     case 'sync': console.log(JSON.stringify(sync(need(pos[0], '<handoff.json>'), o))); break
     case 'inject': { const out = inject({ ...o, pane: flags.pane ?? process.env.RAMOS_PANE, memory: !flags['no-memory'], ...(await ws()) }); if (out) console.log(out); break }
-    case 'read': { const r = read(need(pos[0], '<handoff.json>')); process.stdout.write(r.markdown); if (!r.ok) { console.error('relay: HANDOFF.md does not match handoff.json digest; trust handoff.json'); process.exitCode = 2 } break }
-    default: if (cmd) { console.error(USAGE); process.exitCode = 2 } else console.log(USAGE)
+    case 'read': { const r = read(need(pos[0], '<handoff.json>'), await ws()); if (r.stale) console.log('STALE: workspace changed since checkpoint, verify before acting\n'); process.stdout.write(r.markdown); if (!r.ok) { console.error('relay: HANDOFF.md does not match handoff.json digest; trust handoff.json'); process.exitCode = 2 } break }
+    case undefined: case '--help': case '-h': case 'help': console.log(USAGE); break
+    default: throw new Error(`unknown command ${JSON.stringify(cmd)}`)
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main(process.argv.slice(2)).catch((e) => { console.error(`relay: ${e.message}\n${USAGE}`); process.exitCode = 2 })
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main(process.argv.slice(2)).catch((e) => { console.error(`relay: ${e.message} (see --help)`); process.exitCode = 2 })

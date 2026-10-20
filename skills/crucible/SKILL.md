@@ -8,7 +8,7 @@ description: Use when a feature, refactor, or design is underspecified or has co
 Read first, ask last. The human answers only what the code can't.
 
 ## Step 1: Read (no questions yet)
-Write what the code already decides as facts with `path:line`. Every later question must be one these facts couldn't answer.
+Search with `rg`, then write what the code already decides as facts with `path:line`. Every later question must be one these facts couldn't answer.
 
 ## Step 2: The ladder (before proposing anything new)
 For each piece of the requested change, stop at the first "yes":
@@ -32,9 +32,10 @@ For each axis, mark it **settled** (cite the code or the request) or **open**:
 - Is a genuine architectural fork worth other models' views? → `/council` with this record as the artifact.
 
 ## Step 5: Record
-Write `.ramos/decisions/<topic>.md`:
+Write `<state dir>/decisions/<topic>.md`, where the state dir is `$RAMOS_STATE_DIR` or `.ramos/` (git-ignore it; never commit it):
 ```markdown
 # <topic> (<date>)
+Read at: <commit or branch the facts and line numbers are valid for>
 ## Facts (from code)        - … (path:line)
 ## Ladder outcome           - reuse X / stdlib Y / new Z (why)
 ## Axes                     | axis | settled/assumed/answered | decision | source |

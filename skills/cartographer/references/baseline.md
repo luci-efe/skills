@@ -50,3 +50,9 @@ ast-grep run -p '<pattern>' -l <lang> --json=compact [path...]
    `ast-grep run -p '<symbol>($$$)' --json`
 3. **Locate covering tests:**
    `rg -n "<symbol>" test/ tests/ src/ __tests__/ 2>/dev/null`
+
+## 4. `cartographer.mjs query` baseline behaviour
+- `--limit N` caps `rg_matches` and `ast_matches` each (default 50, max 100; GitNexus mode defaults to 5 processes); `truncated:true` whenever more matches existed than returned.
+- `ast_matches` search the files the query's `rg` search hit (`ast_scope:"rg_files"`). With `--pattern` but no rg hits, ast-grep runs on the whole repo (`ast_scope:"repo"`, still capped by `--limit` and the output budget).
+- A malformed `--pattern` makes `ast-grep` exit 0 with a stderr warning ("Pattern contains an ERROR node", verified on 0.51); the script reports it in `errors` and returns `status:"blocked"` (exit 2).
+- Successful baseline output has `status:"ok"`.

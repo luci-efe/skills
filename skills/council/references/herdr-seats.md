@@ -22,10 +22,11 @@ IDs come from the JSON output. Never construct them.
 
 ## Talking to seats
 ```sh
-herdr pane send-text <pane> 'Read <dir>/round1.prompt.md and follow it exactly.'
+herdr pane send-text <pane> 'Please read the file <dir>/round1.prompt.md and follow it exactly. You are seat codex.'
 herdr pane send-keys <pane> Enter
 herdr pane read <pane> --source recent-unwrapped --lines 20   # confirm it submitted
 ```
-Codex's TUI often swallows the first Enter after pasted text. If the text is still in its input box, send `Enter` again. While Codex is busy, new text shows `tab to queue`, so send `Tab` to queue it.
+Codex garbles text that starts with "Read /abs/path" (leading words dropped); "Please read the file <abs path> ..." works. Codex's TUI often swallows the first Enter after pasted text. If the text is still in its input box, send `Enter` again. While Codex is busy, new text shows `tab to queue`, so send `Tab` to queue it.
 Seat files aren't authenticated: any pane could write another seat's file. The council assumes cooperative seats, so the chair checks attribution when synthesizing.
-Check status with `herdr pane get <pane>` → `agent_status` (`idle|working|blocked`). Use `idle` plus the marker in the seat file as the completion signal, never idle alone.
+To clear a seat's input line, `send-keys <pane> ctrl+u` (lowercase; `C-u`/`Ctrl-U` are rejected; one press clears one line, so repeat per line). Council scripts take no `--state-dir`; set `RAMOS_STATE_DIR`.
+Check status with `herdr pane get <pane>` → `agent_status` (`idle|working|blocked|done`; Codex reports `done` after finishing). Use `idle` or `done` plus the marker in the seat file as the completion signal, never idle alone.

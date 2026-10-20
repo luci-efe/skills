@@ -262,3 +262,55 @@ test('relay state anchors at the git root, so a subdirectory shares it', () => {
   assert.equal(r.status, 0, r.stderr)
   assert.ok(existsSync(join(o.cwd, '.ramos', 'runs', 'r1', 'chair', 'checkpoints', '1', 'handoff.json')))
 })
+
+test('offer assigns the receiver immediately; a later offer withdraws the previous assignment', () => {
+  const o = setup()
+  const a = checkpoint(draft(), { ...o, runId: 'r1', pane: 'chair', workspace: ws })
+  const toAlice = offer(a.path, { ...o, to: 'alice', workspace: ws })
+  assert.match(inject({ ...o, pane: 'alice', workspace: ws, memory: false }), /^\[relay\] r1\/chair#2/)
+  offer(toAlice.checkpoint, { ...o, to: 'bob', workspace: ws })
+  assert.equal(existsSync(join(o.stateDir, 'assigned', 'alice.json')), false)
+  assert.ok(existsSync(join(o.stateDir, 'assigned', 'bob.json')))
+})
+
+test('read reports STALE when the workspace moved; ack on stale succeeds with a warning', () => {
+  const o = setup()
+  const a = checkpoint(draft(), { ...o, runId: 'r1', pane: 'chair', workspace: ws })
+  assert.equal(read(a.path, { workspace: ws }).stale, false)
+  assert.equal(read(a.path, { workspace: { ...ws, head: 'zzz' } }).stale, true)
+  const off = offer(a.path, { ...o, to: 'codex', workspace: ws })
+  const r = ack(off.path, { ...o, receiver: 'codex', workspace: { ...ws, head: 'zzz' } })
+  assert.equal(r.stale, true)
+  assert.match(r.warning, /STALE/)
+})
+
+test('CLI errors are one line plus a pointer to --help, not the usage block', () => {
+  const r = spawnSync(process.execPath, [RELAY, 'read'], { encoding: 'utf8' })
+  assert.equal(r.status, 2)
+  assert.equal(r.stderr.trim().split('\n').length, 1)
+  assert.match(r.stderr, /see --help/)
+  assert.match(spawnSync(process.execPath, [RELAY, '--help'], { encoding: 'utf8' }).stdout, /usage: relay\.mjs/)
+})
+
+test('offer refuses to displace a receiver that is mid-work on another transfer', () => {
+  const o = setup()
+  const a = checkpoint(draft(), { ...o, runId: 'r1', pane: 'chair', workspace: ws })
+  ack(offer(a.path, { ...o, to: 'bob', workspace: ws }).path, { ...o, receiver: 'bob', workspace: ws })
+  const before = readFileSync(join(o.stateDir, 'assigned', 'bob.json'), 'utf8')
+  const other = checkpoint(draft(), { ...o, runId: 'r2', pane: 'lead', workspace: ws })
+  assert.throws(() => offer(other.path, { ...o, to: 'bob', workspace: ws }), /already has a live \(acknowledged\) assignment/)
+  assert.equal(readFileSync(join(o.stateDir, 'assigned', 'bob.json'), 'utf8'), before)
+  assert.equal(readdirSync(join(o.stateDir, 'runs', 'r2', 'lead', 'checkpoints')).length, 1)
+})
+
+test('offer refuses a pending offer from another lane, and re-offering a checkpoint after it was acked', () => {
+  const o = setup()
+  const a = checkpoint(draft(), { ...o, runId: 'r1', pane: 'chair', workspace: ws })
+  const toBob = offer(a.path, { ...o, to: 'bob', workspace: ws })
+  const other = checkpoint(draft(), { ...o, runId: 'r2', pane: 'lead', workspace: ws })
+  assert.throws(() => offer(other.path, { ...o, to: 'bob', workspace: ws }), /pending assignment/)
+  ack(toBob.path, { ...o, receiver: 'bob', workspace: ws })
+  assert.throws(() => offer(toBob.checkpoint, { ...o, to: 'bob', workspace: ws }), /already acknowledged by bob/)
+  assert.throws(() => offer(toBob.checkpoint, { ...o, to: 'carol', workspace: ws }), /already acknowledged by bob/)
+  assert.ok(existsSync(join(o.stateDir, 'assigned', 'bob.json')))
+})

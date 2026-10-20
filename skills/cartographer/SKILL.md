@@ -25,7 +25,7 @@ Run `node <this skill dir>/scripts/cartographer.mjs status` from the repo root.
 
 **2A. GitNexus branch (fresh index, clean tree)**
 Read `references/gitnexus.md` for verified CLI flags and JSON shapes.
-1. Run `node <this skill dir>/scripts/cartographer.mjs query "<concept>" [--limit 5]`.
+1. Run `node <this skill dir>/scripts/cartographer.mjs query "<concept>" [--limit N]` (limit: default 5 here, 50 for baseline `rg`/`ast` matches; max 100).
 2. Inspect returned `processes` and `process_symbols` for step-by-step call order.
 3. For key symbols on the path, run `gitnexus context <symbol>` or `gitnexus impact <symbol> --direction upstream --include-tests` to find callers and tests. Raw `context`/`impact` line numbers are zero-based: add 1 to `startLine` and `endLine` before citing them.
 4. Go to **3**.

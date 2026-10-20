@@ -11,10 +11,12 @@ Separate four findings that are easy to conflate: **affected version**, **suspec
 - `osv-scanner` ≥2 on PATH, else stop and print `brew install osv-scanner` or `go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest`.
 - Exploit reproduction only against a local checkout or a test environment you own. Never against production, third-party hosts, or real credentials. If the target is unclear → ask.
 
+Scope: known-vulnerable dependencies only. Secrets, workflow, and authz review are separate work; say so in the report. For large scans see the rollup notes in `references/triage.md`.
+
 ## Decision tree
 
 **1. Scan** (always first)
-`osv-scanner scan source -r --format json --output-file .ramos/red-team/osv.json .`
+`mkdir -p .ramos/red-team && osv-scanner scan source -r --format json --output-file .ramos/red-team/osv.json .` (use `$RAMOS_STATE_DIR/red-team` if set; exit `127` means the scanner itself failed, e.g. missing output dir, not "clean")
 - Exit `0` → no known vulns in the lockfiles found. Report `not found within stated coverage` and name the lockfiles scanned. Done.
 - Exit `1` → vulns found. Go to 2.
 - Exit `128` → no scannable package sources (no lockfiles, or lockfiles with zero packages). Report `unknown: no scannable package sources` and list the files the scanner says it found. Don't claim the repo is clean.
@@ -34,7 +36,7 @@ Offline: add `--offline-vulnerabilities --download-offline-databases`. Go/Rust c
 3. You can't trigger it → stay `suspected` and record what blocked you.
 
 **4. Fix**
-Prefer the minimal version bump from `osv-scanner fix -M <manifest> -L <lockfile>` (non-interactive). Re-run step 1 and the repo's tests. Hand the result to `/proof`.
+Prefer the minimal version bump from `osv-scanner fix -M <manifest> -L <lockfile>` (non-interactive). `fix` can bump past pinned versions (pass `--upgrade-config` to limit it) and may leave advisories behind: always re-run step 1 and the repo's tests, and trust the rescan, not the fix summary. Hand the result to `/proof`.
 
 ## Done when
 `.ramos/red-team/report.md` lists every advisory as `confirmed | suspected | not affected (version) | not found within stated coverage | unknown` with evidence (lockfile, pattern, test path), and the final scan exit code is recorded.

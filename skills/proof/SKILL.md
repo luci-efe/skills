@@ -7,7 +7,7 @@ description: Use when validating a change, measuring a performance claim, verify
 `<this skill dir>` is the absolute directory containing this installed SKILL.md.
 
 - If checking code behavior → assertion: select the repository's existing relevant checks and observe their execution.
-- If claiming performance → perf: record a baseline and changed run under the same inputs/environment; check correctness and an explicit threshold, not elapsed time alone.
+- If claiming performance → perf (`--branch perf`): the manifest must add `"perf":{"baseline_check":"<id>","changed_check":"<id>","max_ratio":1.2}`; both ids are required checks, run the same workload on baseline and changed code. The runner records `result.perf` (wall-clock ratio changed/baseline) and fails above `max_ratio` (must be ≤100). A baseline under 50ms is `blocked` as inconclusive (ratio is noise): lengthen the workload; `check.mjs` recomputes baseline/changed time and ratio from the logged check timestamps (never trusting the stored values) and rejects a result whose recorded perf numbers differ or whose ratio exceeds `max_ratio`. Wall time of one run is coarse: make each check do enough work to dwarf noise, and keep correctness as a separate required check.
 - If checking a web UI → read `references/visual-web.md`; browser readiness and a user journey are mandatory.
 - If checking a desktop UI → read `references/visual-desktop.md`; use one named CUA session and deterministic state verification.
 - Before any selected branch → probe its sidecar prerequisites; missing tools block only that branch with the known install recipe. Availability does not establish service/browser readiness.
@@ -24,7 +24,7 @@ Example manifest:
 ```json
 {"checks":[{"id":"unit","argv":["node","--test","test/**/*.test.mjs"]}],"required_checks":["unit"],"artifacts":[]}
 ```
-The runner writes `STATE_DIR/runs/<run-id>/result.json`; `STATE_DIR` comes from the installed config module and can be overridden by `RAMOS_STATE_DIR`. It never overwrites an existing run ID. Session registry entries are keyed by session ID. Without `--session` or `RAMOS_SESSION_ID`/`CLAUDE_CODE_SESSION_ID`/`CLAUDE_SESSION_ID`, use the manual check; no hook is armed for an inferred session.
+The runner writes `STATE_DIR/runs/<run-id>/result.json`; `STATE_DIR` comes from the installed config module and can be overridden by `RAMOS_STATE_DIR`. It never overwrites an existing run ID (a rerun exits 2 with `run id already exists`; pick a new `--run-id`). A missing binary still leaves `checks/<id>.log` containing the error. Session registry entries are keyed by session ID. Without `--session` or `RAMOS_SESSION_ID`/`CLAUDE_CODE_SESSION_ID`/`CLAUDE_SESSION_ID`, use the manual check; no hook is armed for an inferred session.
 
 Claude Code supplies `CLAUDE_CODE_SESSION_ID` in its tool environment. `--session` overrides the environment; the Stop hook prefers `session_id` in its JSON input. State is anchored at the Git root (otherwise `CLAUDE_PROJECT_DIR` when it contains cwd, falling back to cwd), so package-level runs and root hooks share evidence. Check output streams to disk without a size cap; each log has a verified SHA-256. Rerun older receipts that lack `log_sha256`.
 

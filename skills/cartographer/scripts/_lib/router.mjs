@@ -4,26 +4,31 @@ import { inside } from './files.mjs';
 import { discoverSkills } from './skills.mjs';
 import { probe } from './probe.mjs';
 const intents = [
-  ['doctor','orient',/\b(install|setup|doctor|missing binary|dependencies)\b/i,'check installation and prerequisites'],
-  ['reproduce','build',/\b(bug|regression|reproduce|failing|broken|debug)\b/i,'isolate failing behavior'],
-  ['red-team','prove',/\b(cve|vulnerab\w*|exploit|security audit)\b/i,'investigate security exposure'],
+  ['doctor','orient',/\b(install|setup|doctor|missing (?:binary|tool|dependenc\w*))\b/i,'check installation and prerequisites'],
+  ['reproduce','build',/\b(bug|regression|reproduce|fails|failed|failing|flaky|intermittent(?:ly)?|broken|debug)\b/i,'isolate failing behavior'],
+  ['red-team','prove',/\b(cve|vulnerab\w*|exploit|security audit|advisor(?:y|ies))\b/i,'investigate security exposure'],
   ['relay','continue',/\b(handoff|hand off|continue session|context window|resume)\b/i,'continue from a checkpoint'],
   ['council','decide',/\b(council|debate|independent review|second opinion)\b/i,'review an artifact independently'],
   ['cartographer','orient',/\b(architecture|domain|codebase|flow|navigate)\b/i,'trace a domain or flow'],
   ['crucible','decide',/\b(requirements|scope|clarify|design|trade.?off)\b/i,'resolve scope and design forks'],
-  ['proof','prove',/\b(verify|verification|proof|test|tests|ship|benchmark|visual)\b/i,'verify completion evidence'],
+  ['proof','prove',/\b(verify|verification|proof|test|tests|ship|benchmark|visual|validate|prove)\b/i,'verify completion evidence'],
   ['compass','orient',/\b(which skill|route|compass)\b/i,'find the next skill'],
 ];
 function explicitSkill(prompt,skills) {return [...prompt.matchAll(/(?:^|\s)\/([a-z][a-z-]*)(?=$|[\s.,!?])/g)].find(m=>skills.some(s=>s.name===m[1]))?.[1];}
 export function candidates(prompt,skills) {
   const explicit=explicitSkill(prompt,skills);
-  return skills.flatMap(s=>{
+  const verifyIntent=/\b(verify|verification|validate|prove|proof)\b/i.test(prompt);
+  const ranked=skills.flatMap(s=>{
     const intent=intents.find(i=>i[0]===s.name);
     if(explicit===s.name)return [{...s,reason:'explicit request',score:100}];
     if(explicit||!intent||!intent[2].test(prompt))return [];
     if(s.metadata && (s.metadata.stage!==intent[1] || !s.metadata.rule_ids?.length))return [];
     return [{...s,reason:intent[3],score:10-intents.indexOf(intent)}];
-  }).sort((a,b)=>b.score-a.score||a.path.localeCompare(b.path)).slice(0,3);
+  });
+  // An explicit verify request outranks a symptom word (reproduce) in the same prompt.
+  const proof=ranked.find(c=>c.name==='proof');
+  if(verifyIntent&&proof)for(const c of ranked)if(c.name==='reproduce')c.score=proof.score-0.5;
+  return ranked.sort((a,b)=>b.score-a.score||a.path.localeCompare(b.path)).slice(0,3);
 }
 export function nudge(prompt,skills) {
   if(explicitSkill(prompt,skills))return '';
@@ -43,7 +48,7 @@ export async function route(prompt,{cwd=process.cwd(),skills,branch,skill,probeF
   if(options.filter(s=>s.name===selected.name).length>1)return {status:'ambiguous',candidates:options,selected:null,reason:'Duplicate skill name; use --skill with its absolute SKILL.md path'};
   if(selected.dependency_status!=='declared')return {status:selected.dependency_status,candidates:options,selected,reason:selected.error??'Read third-party preflight; dependencies are undeclared'};
   const chosen=branch?selected.metadata.branches.find(b=>b.id===branch):selected.metadata.branches[0];
-  if(!chosen)return {status:'blocked',candidates:options,selected,reason:'Unknown branch'};
+  if(!chosen)return {status:'blocked',candidates:options,selected,reason:`Unknown branch ${branch}; to pick a skill use --skill <path to SKILL.md> (branches of ${selected.name}: ${selected.metadata.branches.map(b=>b.id).join(', ')})`};
   const prerequisites=await probeFn(chosen.requires,{cwd});
   return {status:prerequisites.every(p=>p.ok)?'ready':'blocked',candidates:options.map(s=>({name:s.name,path:s.path,reason:s.reason})),selected:{name:selected.name,path:selected.path},branch:chosen.id,entrypoint:inside(dirname(selected.path),chosen.entrypoint),prerequisites,reason:selected.reason,artifact_schema:chosen.artifact_schema};
 }
