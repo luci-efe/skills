@@ -43,9 +43,11 @@ export async function validateResult(cwd,result,{runId}={}) {
     return {ok:true,reason:null};
   }catch(error){return {ok:false,reason:error.message};}
 }
-export async function readActiveRun(cwd,sessionId) {
+function freshUnattributed(run) {return run&&Date.now()-Date.parse(run.updated_at)<UNATTRIBUTED_MAX_AGE_MS?run:null;}
+const UNATTRIBUTED_MAX_AGE_MS=6*60*60*1000;
+export async function readActiveRun(cwd,sessionId,{unattributed=false}={}) {
   if(!sessionId)return null;
-  try {const active=await readJSON(resolve(stateDirectory(cwd),'active.json'));return active.sessions?.[sessionId]??(active.session_id===sessionId?active:null)??active.sessions?.[UNATTRIBUTED]??null;}catch(e){if(e.code==='ENOENT')return null;throw e;}
+  try {const active=await readJSON(resolve(stateDirectory(cwd),'active.json'));return active.sessions?.[sessionId]??(active.session_id===sessionId?active:null)??(unattributed?freshUnattributed(active.sessions?.[UNATTRIBUTED]):null);}catch(e){if(e.code==='ENOENT')return null;throw e;}
 }
 export async function setActiveRun(cwd,sessionId,run) {
   if(typeof sessionId!=='string'||!sessionId||['__proto__','constructor','prototype'].includes(sessionId))throw new Error('Session ID required');
@@ -54,6 +56,6 @@ export async function setActiveRun(cwd,sessionId,run) {
   if(!held)throw new Error('Active session registry is locked; inspect interrupted writer');
   try {
     let active={sessions:{}};try{active=await readJSON(resolve(dir,'active.json'));}catch(e){if(e.code!=='ENOENT')throw e;}
-    active.sessions??={};active.sessions[sessionId]=run;await atomicJSON(resolve(dir,'active.json'),active);
+    active.sessions??={};active.sessions[sessionId]={...run,updated_at:new Date().toISOString()};await atomicJSON(resolve(dir,'active.json'),active);
   }finally{await rmdir(lock);}
 }

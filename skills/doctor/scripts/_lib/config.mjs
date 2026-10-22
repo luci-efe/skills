@@ -20,4 +20,15 @@ export function workspaceRoot(cwd=process.cwd()) {
   return cwd;
 }
 export function stateDirectory(cwd=process.cwd()) {return canonical(resolve(workspaceRoot(cwd),STATE_DIR));}
-export function sessionId(env=process.env) {return env.RAMOS_SESSION_ID??env.CODEX_THREAD_ID??env.GEMINI_SESSION_ID??env.CLAUDE_CODE_SESSION_ID??env.CLAUDE_SESSION_ID;}
+/** Session ids visible to this process. Each harness exports its own id and children inherit the parent's, so every one is kept: the innermost harness first. An explicit RAMOS_SESSION_ID wins alone. */
+export function sessionIds(env=process.env) {
+  if(env.RAMOS_SESSION_ID)return [env.RAMOS_SESSION_ID];
+  return [env.CODEX_THREAD_ID,env.GEMINI_SESSION_ID,env.CLAUDE_CODE_SESSION_ID,env.CLAUDE_SESSION_ID].filter(Boolean);
+}
+export function sessionId(env=process.env) {return sessionIds(env)[0];}
+/** Ids a run registers under. Gemini CLI's shell tool has no session id, so such a run also takes the unattributed slot that only Gemini's AfterAgent hook reads. */
+export function runSessionIds(env=process.env) {
+  const ids=sessionIds(env);
+  if(env.GEMINI_CLI&&!env.GEMINI_SESSION_ID&&!env.RAMOS_SESSION_ID)ids.push(UNATTRIBUTED);
+  return ids;
+}

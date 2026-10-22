@@ -11,7 +11,7 @@ node skills/proof/scripts/check.mjs r1
 ```
 
 ## Writes
-`<state>/runs/<run-id>/result.json` and logs. The Stop gate blocks a stale "done" in Claude Code and Codex (`Stop`) and Gemini CLI (`AfterAgent`); wire it with `doctor.mjs --install-hooks claude|codex|gemini`. Other harnesses run `check.mjs` by hand.
+`<state>/runs/<run-id>/result.json` and logs. The Stop gate blocks a stale "done" in Claude Code and Codex (`Stop`) and Gemini CLI (`AfterAgent`, wired from its docs, not watched live); wire it with `doctor.mjs --install-hooks claude|codex|gemini`. Other harnesses run `check.mjs` by hand.
 
 ## Notes
 Local gate stops accidental false claims, not fabricated evidence; CI re-execution is the real proof. The `perf` branch needs `perf:{baseline_check,changed_check,max_ratio}` in the manifest; the wall-clock ratio is recorded and enforced by `run.mjs` and `check.mjs`. Rerunning a run id exits 2 with a clear error.

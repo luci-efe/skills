@@ -93,7 +93,7 @@ Plugin de Claude Code: `claude plugin marketplace add luci-efe/skills` y luego `
 - **"Terminado" vs. "verificado".** La compuerta local evita declaraciones accidentales de finalización; una evidencia escrita a mano aún puede pasarla. La reejecución en CI y una revisión independiente permiten llamarlo verificado.
 
 Los comandos y nombres de archivo se mantienen en inglés.
-- **Funciona en tu agente.** Sigue el formato abierto [Agent Skills](https://agentskills.io/specification). Claude Code: `npx skills@latest add luci-efe/skills -a claude-code`. Codex, Gemini CLI, Cursor, GitHub Copilot, OpenCode y Antigravity: `-a codex` (cambia el id del agente). Los hooks y la compuerta de `/proof` son solo de Claude Code; en los demás agentes los mismos scripts se ejecutan manualmente.
+- **Funciona en tu agente.** Sigue el formato abierto [Agent Skills](https://agentskills.io/specification). Claude Code: `npx skills@latest add luci-efe/skills -a claude-code`. Codex, Gemini CLI, Cursor, GitHub Copilot, OpenCode y Antigravity: `-a codex` (cambia el id del agente). La compuerta de `/proof` funciona en Claude Code y Codex (vista en vivo en Codex) y está conectada para Gemini CLI según su documentación (no la vimos en vivo); los demás hooks son solo de Claude Code. En el resto de agentes los mismos scripts se ejecutan manualmente.
 
 ## License
 MIT © Fernando Ramos

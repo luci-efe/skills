@@ -12,7 +12,7 @@ const collection=resolve(adapterDir,basename(adapterDir)==='_lib'?'../../..':'..
 export async function handleHook(event,input,options={}) {
   const cwd=input.cwd??process.cwd();
   if(event==='Stop')return stop(input);
-  if(event==='AfterAgent') {const verdict=await stop(input);return verdict.decision==='block'?{...verdict,decision:'deny'}:verdict;}
+  if(event==='AfterAgent') {const verdict=await stop(input,{unattributed:true});return verdict.decision==='block'?{...verdict,decision:'deny'}:verdict;}
   const roots=options.roots??[...skillRoots(cwd),resolve(cwd,'skills'),options.skillRoot??collection];
   if(event==='UserPromptSubmit')return additionalContext(event,nudge(input.prompt??'',await discoverSkills({cwd,roots})));
   if(event==='SessionStart') {

@@ -2,7 +2,6 @@ import { mkdir, appendFile, copyFile } from 'node:fs/promises';
 import { resolve, basename } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { inside, safeId, fileSHA256 } from './files.mjs';
-import { UNATTRIBUTED } from './config.mjs';
 import { inputDigest } from './digest.mjs';
 import { execute } from './execute.mjs';
 import { runDirectory, writeResult, setActiveRun, MIN_PERF_BASELINE_MS, MAX_PERF_RATIO } from './result.mjs';
@@ -13,7 +12,7 @@ export function perfVerdict(perf,checks) {
   const baseline_ms=Math.max(1,elapsed(base)),changed_ms=elapsed(changed);
   return {baseline_check:perf.baseline_check,changed_check:perf.changed_check,baseline_ms,changed_ms,ratio:changed_ms/baseline_ms,max_ratio:perf.max_ratio};
 }
-export async function runChecks(manifest,{cwd=process.cwd(),runId=randomUUID(),sessionId,branch='assertion',prerequisites=[]}={}) {
+export async function runChecks(manifest,{cwd=process.cwd(),runId=randomUUID(),sessionId,sessionIds=sessionId?[sessionId]:[],branch='assertion',prerequisites=[]}={}) {
   if(!['assertion','perf','visual-web','visual-desktop'].includes(branch))throw new Error('Invalid proof branch');
   if(!Array.isArray(manifest.checks)||!manifest.checks.length||!Array.isArray(manifest.required_checks)||!manifest.required_checks.length)throw new Error('Declare checks and nonempty required_checks');
   const ids=new Set();
@@ -33,7 +32,7 @@ export async function runChecks(manifest,{cwd=process.cwd(),runId=randomUUID(),s
   const source=await inputDigest(cwd);
   const result={schema_version:1,run_id:runId,skill:'proof',branch,status:'blocked',source,checks:[],required_checks:manifest.required_checks,artifacts:[],reason:'Checks have not completed'};
   await writeResult(cwd,result);
-  await setActiveRun(cwd,sessionId??UNATTRIBUTED,{run_id:runId,claimed_done:false});
+  for(const id of sessionIds)await setActiveRun(cwd,id,{run_id:runId,claimed_done:false});
   try {
     const missing=prerequisites.filter(p=>!p.ok);
     if(missing.length)throw new Error(missing.map(p=>`${p.id}: ${p.diagnostic??'unavailable'}; ${p.missing_install??'no verified installation recipe'}`).join('; '));
@@ -63,6 +62,6 @@ export async function runChecks(manifest,{cwd=process.cwd(),runId=randomUUID(),s
       }
     }
   } catch(error){result.status='blocked';result.reason=error.message;}
-  await writeResult(cwd,result);await setActiveRun(cwd,sessionId??UNATTRIBUTED,{run_id:runId,claimed_done:result.status==='passed'});
+  await writeResult(cwd,result);for(const id of sessionIds)await setActiveRun(cwd,id,{run_id:runId,claimed_done:result.status==='passed'});
   return result;
 }
