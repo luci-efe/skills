@@ -39,8 +39,7 @@ export async function main(event,skillRoot) {
   let input={};
   try {input=await hookInput();console.log(JSON.stringify(await handleHook(event,input,{skillRoot})));}
   catch(error){
-    if(event==='Stop'||event==='AfterAgent')console.log(JSON.stringify({decision:event==='Stop'?'block':'deny',reason:`/proof: ${error.message}`}));
-    else {await logAdvisory(input.cwd??process.cwd(),event,error);console.log('{}');}
+    await logAdvisory(input.cwd??process.cwd(),event,error);console.log('{}');
   }
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href)await main(process.argv[2],process.argv[3]);

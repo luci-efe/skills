@@ -27,7 +27,7 @@ The skills follow the open [Agent Skills](https://agentskills.io/specification) 
 
 Add `-g` for a global install and `--copy` to copy instead of symlink. Browse them on [skills.sh](https://skills.sh/luci-efe/skills).
 
-What differs by agent: the one hard `/proof` Stop gate and the other hooks are Claude Code only, because they use its hook events. In every other agent the same scripts run as manual checks (see `/doctor`). `/council` and `/relay` launch need [Herdr](https://herdr.dev).
+What differs by agent: the hard `/proof` Stop gate works in Claude Code and Codex (watched live on Codex) and is wired for Gemini CLI from its docs (not watched live); the other hooks are Claude Code only. Elsewhere the same scripts run as manual checks (see `/doctor`). `/council` and `/relay` launch need [Herdr](https://herdr.dev).
 
 ## The skills
 | Stage | Skill | Use when | Rule |

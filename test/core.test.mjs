@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { inputDigest } from '../lib/digest.mjs';
 import { parseFrontmatter, discoverSkills, validateMetadata } from '../lib/skills.mjs';
 import { writeResult, validateResult, setActiveRun } from '../lib/result.mjs';
+import { sessionId, UNATTRIBUTED } from '../lib/config.mjs';
 import { route, nudge } from '../lib/router.mjs';
 import { stop } from '../lib/claude.mjs';
 import { fileSHA256 } from '../lib/files.mjs';
@@ -174,4 +175,14 @@ test('validateResult rejects tampered perf records, tiny baselines, absurd max_r
   assert.equal((await validateResult(cwd,{...good,perf:{...good.perf,max_ratio:1000}})).ok,false);
   assert.match((await validateResult(cwd,mk(10,15))).reason,/inconclusive/);
   assert.match((await validateResult(cwd,{...base,perf:good.perf})).reason,/requires the perf branch/);
+});
+
+test('session id prefers the explicit and innermost harness over an inherited Claude id',()=>{
+  assert.equal(sessionId({CLAUDE_CODE_SESSION_ID:'c',RAMOS_SESSION_ID:'explicit'}),'explicit');
+  assert.equal(sessionId({CLAUDE_CODE_SESSION_ID:'parent',CODEX_THREAD_ID:'child'}),'child');
+  assert.equal(sessionId({CLAUDE_CODE_SESSION_ID:'c'}),'c');assert.equal(sessionId({}),undefined);
+});
+test('a run registered without a session id still gates any session in that tree',async()=>{
+  const cwd=await temp();await writeFile(join(cwd,'source'),'one');const result=await evidence(cwd);await writeResult(cwd,result);await setActiveRun(cwd,UNATTRIBUTED,{run_id:'run1',claimed_done:true});
+  assert.deepEqual(await stop({cwd,session_id:'gem-123'}),{});await writeFile(join(cwd,'source'),'two');assert.equal((await stop({cwd,session_id:'gem-123'})).decision,'block');
 });

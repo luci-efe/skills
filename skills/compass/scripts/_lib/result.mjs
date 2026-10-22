@@ -1,7 +1,7 @@
 import { mkdir, readFile, rmdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { stateDirectory } from './config.mjs';
+import { stateDirectory, UNATTRIBUTED } from './config.mjs';
 import { atomicJSON, inside, readJSON, safeId, fileSHA256 } from './files.mjs';
 import { inputDigest } from './digest.mjs';
 export const runDirectory = (cwd,id) => resolve(stateDirectory(cwd),'runs',safeId(id));
@@ -45,7 +45,7 @@ export async function validateResult(cwd,result,{runId}={}) {
 }
 export async function readActiveRun(cwd,sessionId) {
   if(!sessionId)return null;
-  try {const active=await readJSON(resolve(stateDirectory(cwd),'active.json'));return active.sessions?.[sessionId]??(active.session_id===sessionId?active:null);}catch(e){if(e.code==='ENOENT')return null;throw e;}
+  try {const active=await readJSON(resolve(stateDirectory(cwd),'active.json'));return active.sessions?.[sessionId]??(active.session_id===sessionId?active:null)??active.sessions?.[UNATTRIBUTED]??null;}catch(e){if(e.code==='ENOENT')return null;throw e;}
 }
 export async function setActiveRun(cwd,sessionId,run) {
   if(typeof sessionId!=='string'||!sessionId||['__proto__','constructor','prototype'].includes(sessionId))throw new Error('Session ID required');

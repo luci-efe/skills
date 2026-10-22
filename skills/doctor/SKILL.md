@@ -13,7 +13,7 @@ description: Use when installing this suite, checking missing tools, repairing d
 - If a binary is available → separately verify the branch's auth, service, browser or desktop readiness before work. `--help` does not establish those capabilities.
 - If explicitly wiring harness hooks → run `node <this skill dir>/scripts/doctor.mjs --install-hooks claude|codex|gemini --dry-run` (codex and gemini install only the /proof stop gate), inspect the settings merge, then run without `--dry-run` under the user's existing authorization.
 - If settings are malformed → report the error; preserve the file rather than overwriting it.
-- If using Codex or Antigravity → use manual scripts; do not label Claude hooks active there.
+- If using Antigravity or another harness without hooks → use manual scripts. Codex and Gemini CLI get only the /proof stop gate via `--install-hooks`; do not label the other Claude hooks active there.
 - If an index is stale → refresh discovery through compass. Code index freshness remains the selected cartographer provider's responsibility.
 
 Hook installation preserves unrelated settings and registers SessionStart, UserPromptSubmit and Stop once at the resolved installed runtime path. Only Stop blocks claimed proof completion. Moving/removing the installed doctor directory requires reinstallation of these hook commands.

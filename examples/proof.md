@@ -21,7 +21,7 @@ $ git checkout src/cli.ts && node $S/check.mjs pass-1
 $ node $S/run.mjs checks.json --run-id pass-1 ...
 run id already exists: pick a new --run-id (pass-1)                    # exit 2
 ```
-That is the point: a "done" claim whose evidence no longer matches the tree is refused. In Claude Code the Stop hook turns this into a block.
+That is the point: a "done" claim whose evidence no longer matches the tree is refused. With the stop hook installed (Claude Code, Codex, Gemini CLI) this turns into a block.
 
 ## 3. Perf gate
 Two real checks over the same workload, differing only in the vitest pool: baseline `unit-forks` (`--pool=forks`) versus changed `unit-threads` (`--pool=threads`). The manifest adds:
