@@ -1,6 +1,6 @@
 {
   "name": "luci-efe-skills",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Agentic engineering skills by Fernando Ramos — evidence of done, context that continues, many models.",
   "type": "module",
