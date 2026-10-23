@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { inputDigest } from '../lib/digest.mjs';
 import { parseFrontmatter, discoverSkills, validateMetadata } from '../lib/skills.mjs';
 import { writeResult, validateResult, setActiveRun } from '../lib/result.mjs';
+import { sessionId, sessionIds, runSessionIds, UNATTRIBUTED } from '../lib/config.mjs';
 import { route, nudge } from '../lib/router.mjs';
 import { stop } from '../lib/claude.mjs';
 import { fileSHA256 } from '../lib/files.mjs';
@@ -174,4 +175,26 @@ test('validateResult rejects tampered perf records, tiny baselines, absurd max_r
   assert.equal((await validateResult(cwd,{...good,perf:{...good.perf,max_ratio:1000}})).ok,false);
   assert.match((await validateResult(cwd,mk(10,15))).reason,/inconclusive/);
   assert.match((await validateResult(cwd,{...base,perf:good.perf})).reason,/requires the perf branch/);
+});
+
+test('session id prefers the explicit and innermost harness over an inherited Claude id',()=>{
+  assert.equal(sessionId({CLAUDE_CODE_SESSION_ID:'c',RAMOS_SESSION_ID:'explicit'}),'explicit');
+  assert.equal(sessionId({CLAUDE_CODE_SESSION_ID:'parent',CODEX_THREAD_ID:'child'}),'child');
+  assert.equal(sessionId({CLAUDE_CODE_SESSION_ID:'c'}),'c');assert.equal(sessionId({}),undefined);
+});
+test('runs register under every inherited harness id, and under the unattributed slot only inside Gemini CLI',()=>{
+  assert.deepEqual(sessionIds({CLAUDE_CODE_SESSION_ID:'parent',GEMINI_CLI:'1'}),['parent']);
+  assert.deepEqual(runSessionIds({CLAUDE_CODE_SESSION_ID:'parent',CODEX_THREAD_ID:'child'}),['child','parent']);
+  assert.deepEqual(runSessionIds({CLAUDE_CODE_SESSION_ID:'parent',GEMINI_CLI:'1'}),['parent',UNATTRIBUTED]);
+  assert.deepEqual(runSessionIds({RAMOS_SESSION_ID:'x',GEMINI_CLI:'1',CODEX_THREAD_ID:'c'}),['x']);
+  assert.deepEqual(runSessionIds({RAMOS_SESSION_ID:'',CLAUDE_CODE_SESSION_ID:'c'}),['c']);
+  assert.deepEqual(runSessionIds({}),[]);
+});
+test('the unattributed run gates Gemini AfterAgent only, and expires',async()=>{
+  const cwd=await temp();await writeFile(join(cwd,'source'),'one');const result=await evidence(cwd);await writeResult(cwd,result);await setActiveRun(cwd,UNATTRIBUTED,{run_id:'run1',claimed_done:true});
+  await writeFile(join(cwd,'source'),'two');
+  assert.equal((await stop({cwd,session_id:'gem-123'},{unattributed:true})).decision,'block');
+  assert.deepEqual(await stop({cwd,session_id:'claude-other'}),{});
+  const file=join(cwd,STATE_DIR,'active.json');const active=JSON.parse(await readFile(file));active.sessions[UNATTRIBUTED].updated_at=new Date(Date.now()-7*3600e3).toISOString();await writeFile(file,JSON.stringify(active));
+  assert.deepEqual(await stop({cwd,session_id:'gem-123'},{unattributed:true}),{});
 });

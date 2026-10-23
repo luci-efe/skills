@@ -1,6 +1,7 @@
 import { readJSON } from './_lib/files.mjs';
 import { runChecks } from './_lib/proof.mjs';
 import { options } from './_lib/cli.mjs';
+import { runSessionIds } from './_lib/config.mjs';
 import { probe } from './_lib/probe.mjs';
 import { validateMetadata } from './_lib/skills.mjs';
 try {
@@ -10,6 +11,6 @@ try {
   const branch=metadata.branches.find(b=>b.id===(flags.branch??'assertion'));
   if(!branch)throw new Error('Unknown proof branch');
   const prerequisites=await probe(branch.requires);
-  const result=await runChecks(await readJSON(positional[0]),{runId:flags['run-id'],sessionId:flags.session??process.env.CLAUDE_CODE_SESSION_ID??process.env.RAMOS_SESSION_ID??process.env.CLAUDE_SESSION_ID,branch:branch.id,prerequisites});
+  const result=await runChecks(await readJSON(positional[0]),{runId:flags['run-id'],sessionIds:flags.session?[flags.session]:runSessionIds(),branch:branch.id,prerequisites});
   console.log(JSON.stringify(result,null,2));process.exitCode=result.status==='passed'?0:2;
 }catch(error){console.error(error.message);process.exitCode=2;}

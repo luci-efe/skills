@@ -27,7 +27,7 @@ The skills follow the open [Agent Skills](https://agentskills.io/specification) 
 
 Add `-g` for a global install and `--copy` to copy instead of symlink. Browse them on [skills.sh](https://skills.sh/luci-efe/skills).
 
-What differs by agent: the one hard `/proof` Stop gate and the other hooks are Claude Code only, because they use its hook events. In every other agent the same scripts run as manual checks (see `/doctor`). `/council` and `/relay` launch need [Herdr](https://herdr.dev).
+What differs by agent: the hard `/proof` Stop gate works in Claude Code and Codex (watched live on Codex) and is wired for Gemini CLI from its docs (not watched live); the other hooks are Claude Code only. Elsewhere the same scripts run as manual checks (see `/doctor`). `/council` and `/relay` launch need [Herdr](https://herdr.dev).
 
 ## The skills
 | Stage | Skill | Use when | Rule |
@@ -93,7 +93,7 @@ Plugin de Claude Code: `claude plugin marketplace add luci-efe/skills` y luego `
 - **"Terminado" vs. "verificado".** La compuerta local evita declaraciones accidentales de finalización; una evidencia escrita a mano aún puede pasarla. La reejecución en CI y una revisión independiente permiten llamarlo verificado.
 
 Los comandos y nombres de archivo se mantienen en inglés.
-- **Funciona en tu agente.** Sigue el formato abierto [Agent Skills](https://agentskills.io/specification). Claude Code: `npx skills@latest add luci-efe/skills -a claude-code`. Codex, Gemini CLI, Cursor, GitHub Copilot, OpenCode y Antigravity: `-a codex` (cambia el id del agente). Los hooks y la compuerta de `/proof` son solo de Claude Code; en los demás agentes los mismos scripts se ejecutan manualmente.
+- **Funciona en tu agente.** Sigue el formato abierto [Agent Skills](https://agentskills.io/specification). Claude Code: `npx skills@latest add luci-efe/skills -a claude-code`. Codex, Gemini CLI, Cursor, GitHub Copilot, OpenCode y Antigravity: `-a codex` (cambia el id del agente). La compuerta de `/proof` funciona en Claude Code y Codex (vista en vivo en Codex) y está conectada para Gemini CLI según su documentación (no la vimos en vivo); los demás hooks son solo de Claude Code. En el resto de agentes los mismos scripts se ejecutan manualmente.
 
 ## License
 MIT © Fernando Ramos

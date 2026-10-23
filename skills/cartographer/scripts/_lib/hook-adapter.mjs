@@ -12,6 +12,7 @@ const collection=resolve(adapterDir,basename(adapterDir)==='_lib'?'../../..':'..
 export async function handleHook(event,input,options={}) {
   const cwd=input.cwd??process.cwd();
   if(event==='Stop')return stop(input);
+  if(event==='AfterAgent') {const verdict=await stop(input,{unattributed:true});return verdict.decision==='block'?{...verdict,decision:'deny'}:verdict;}
   const roots=options.roots??[...skillRoots(cwd),resolve(cwd,'skills'),options.skillRoot??collection];
   if(event==='UserPromptSubmit')return additionalContext(event,nudge(input.prompt??'',await discoverSkills({cwd,roots})));
   if(event==='SessionStart') {
@@ -38,8 +39,7 @@ export async function main(event,skillRoot) {
   let input={};
   try {input=await hookInput();console.log(JSON.stringify(await handleHook(event,input,{skillRoot})));}
   catch(error){
-    if(event==='Stop')console.log(JSON.stringify({decision:'block',reason:`/proof: ${error.message}`}));
-    else {await logAdvisory(input.cwd??process.cwd(),event,error);console.log('{}');}
+    await logAdvisory(input.cwd??process.cwd(),event,error);console.log('{}');
   }
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href)await main(process.argv[2],process.argv[3]);
